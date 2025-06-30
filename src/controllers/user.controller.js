@@ -1,11 +1,11 @@
-import { User } from '../models/user.model.js';
+import { User } from '../models/auth.model.js';
 import { validateUser } from '../validation/user.validation.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import Token from '../models/token.model.js';
 import nodemailer from 'nodemailer';
 import { JWT_ACCESS_TOKEN_SECRET_KEY, CLIENT_URL } from '../config/env.config.js';
-
+import { ApiError } from '../utils/api.utils.js'
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
@@ -26,7 +26,7 @@ export const userController = {
             }
 
             const existingUser = await User.findOne({
-                $or: [{ email: req.body.email }, { username: req.body.username }]
+                $or: [{ email: req.body.email }, { username: req.body.fullName }]
             });
             if (existingUser) {
                 return res.status(400).json({ success: false, message: 'User with this email or username already exists' });
@@ -40,10 +40,9 @@ export const userController = {
             );
 
             const user = new User({
-                username: req.body.username,
+                fullName: req.body.fullName,
                 email: req.body.email,
                 password: hashedPassword,
-                fullName: req.body.fullName,
                 verificationToken
             });
 
@@ -66,9 +65,9 @@ export const userController = {
                 message: 'User created successfully. Please check your email to verify.',
                 data: {
                     id: savedUser._id,
-                    username: savedUser.username,
+                    fullName: savedUser.fullName,
                     email: savedUser.email,
-                    fullName: savedUser.fullName
+
                 }
             });
         } catch (error) {
@@ -92,9 +91,9 @@ export const userController = {
             user.verificationToken = null;
             await user.save();
 
-            res.status(200).json({ success: true, message: 'Email verified successfully. You can now login.' });
+            res.status(200).json({ success: 'success', message: 'Email verified successfully. You can now login.' });
         } catch (error) {
-            res.status(500).json({ success: false, message: 'Server error', error: error.message });
+            res.status(500).json({ success: 'error', message: 'Server error', error: error.message });
         }
     },
 
@@ -262,5 +261,79 @@ export const userController = {
         } catch (error) {
             res.status(500).json({ success: false, message: 'Server error', error: error.message });
         }
+    },
+    verifyPassword: async (req, res) => {
+        const { password, user } = req.body;
+        console.log(user);
+
+        const newUser = await User.findById({ _id: user.id }); // use req.user from authMiddleware
+        console.log(newUser);
+        const isMatch = await bcrypt.compare(password, newUser.password);
+
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: "Invalid password" });
+        }
+
+        res.json({ success: true, message: "Password verified" });
+    },
+    forgotPassword: async (req, res) => {
+        const { email } = req.body;
+        if (!email) throw new ApiError(400, "Email is required");
+
+        const user = await User.findOne({ email });
+        if (!user) throw new ApiError(404, "No user found with this email");
+
+
+        const resetToken = jwt.sign({ id: user._id }, JWT_ACCESS_TOKEN_SECRET_KEY, { expiresIn: "15m" });
+
+        const resetLink = `${req.headers.origin}/reset-password/${resetToken}`;
+
+        await transporter.sendMail({
+            from: process.env.EMAIL,
+            to: email,
+            subject: "Password Reset Request",
+            html: `
+              <p>You requested to reset your password.</p>
+              <p><a href="${resetLink}">Click here to reset password</a></p>
+              <p>This link will expire in 15 minutes.</p>
+            `,
+        });
+
+        user.resetToken = resetToken;
+        user.resetTokenExpiry = Date.now() + 15 * 60 * 1000;
+        await user.save();
+
+        res.status(200).json(200, null, "Reset link sent to email.");
+    },
+
+    resetPassword: async (req, res) => {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        let newPassword = password;
+        if (!newPassword) throw new ApiError(400, "New password is required");
+
+        const decoded = jwt.verify(token, JWT_ACCESS_TOKEN_SECRET_KEY);
+        console.log("decoded:", decoded)
+        const user = await User.findOne({
+            _id: decoded.id,
+            resetToken: token,
+            resetTokenExpiry: { $gt: Date.now() },
+        });
+
+        console.log("user:", user)
+        if (!user) throw new ApiError(400, "Invalid or expired token");
+
+        user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        user.resetToken = undefined;
+        user.resetTokenExpiry = undefined;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Password reset successfully"
+        });
+
     }
+
 };

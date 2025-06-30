@@ -2,7 +2,7 @@
 import Joi from 'joi';
 
 const userValidationSchema = Joi.object({
-    username: Joi.string()
+    fullName: Joi.string()
         .min(3)
         .max(30)
         .required()
@@ -17,9 +17,7 @@ const userValidationSchema = Joi.object({
         .min(6)
         .required(),
     
-    fullName: Joi.string()
-        .max(50)
-        .trim()
+   
 });
 
 export const validateUser = (data) => {

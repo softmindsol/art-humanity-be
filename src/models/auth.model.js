@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
-    username: {
+    fullName: {
         type: String,
         required: true,
         trim: true,
@@ -21,13 +21,20 @@ const userSchema = new Schema({
         required: true,
         minlength: 6
     },
- 
     isVerified: {
         type: Boolean,
         default: false
     },
-    verificationToken: { // Added for email verification
+    verificationToken: {
         type: String,
+        default: null
+    },
+    resetToken: {           // ✅ Add this
+        type: String,
+        default: null
+    },
+    resetTokenExpiry: {     // ✅ Add this
+        type: Date,
         default: null
     },
     createdAt: {
@@ -35,6 +42,7 @@ const userSchema = new Schema({
         default: Date.now
     }
 });
+
 
 const User = mongoose.model('User', userSchema);
 
