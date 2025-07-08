@@ -6,6 +6,7 @@ import Token from '../models/token.model.js';
 import nodemailer from 'nodemailer';
 import { JWT_ACCESS_TOKEN_SECRET_KEY, CLIENT_URL } from '../config/env.config.js';
 import { ApiError } from '../utils/api.utils.js'
+import admin from '../config/firebase.js';
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
@@ -314,14 +315,13 @@ export const userController = {
         if (!newPassword) throw new ApiError(400, "New password is required");
 
         const decoded = jwt.verify(token, JWT_ACCESS_TOKEN_SECRET_KEY);
-        console.log("decoded:", decoded)
+
         const user = await User.findOne({
             _id: decoded.id,
             resetToken: token,
             resetTokenExpiry: { $gt: Date.now() },
         });
 
-        console.log("user:", user)
         if (!user) throw new ApiError(400, "Invalid or expired token");
 
         user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
@@ -334,6 +334,32 @@ export const userController = {
             message: "Password reset successfully"
         });
 
+    },
+    firebaseLogin: async (req, res) => {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ success: false, message: "Token is required" });
+        }
+
+        try {
+            const decoded = await admin.auth().verifyIdToken(token);
+
+            let user = await User.findOne({ firebaseUid: decoded.uid });
+            if (!user) {
+                user = await User.create({
+                    firebaseUid: decoded.uid,
+                    email: decoded.email,
+                    name: decoded.name || decoded.email,
+                    avatar: decoded.picture
+                });
+            }
+
+            res.status(200).json({ success: true, user });
+        } catch (err) {
+            console.error("Firebase Auth Error:", err);
+            res.status(401).json({ success: false, message: "Invalid Firebase token" });
+        }
     }
 
 };

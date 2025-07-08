@@ -5,7 +5,6 @@ const Schema = mongoose.Schema;
 const userSchema = new Schema({
     fullName: {
         type: String,
-        required: true,
         trim: true,
         minlength: 3
     },
@@ -16,9 +15,18 @@ const userSchema = new Schema({
         trim: true,
         lowercase: true,
     },
+    firebaseUid: {
+        type: String,
+        unique: true,
+        sparse: true // Allow some users to not have firebaseUid (for local users)
+    },
+    avatar: {
+        type: String
+    },
+
     password: {
         type: String,
-        required: true,
+        // required: true,
         minlength: 6
     },
     isVerified: {
