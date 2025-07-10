@@ -230,7 +230,6 @@ export const userController = {
                 success: true,
                 data: {
                     id: user._id,
-                    username: user.username,
                     email: user.email,
                     fullName: user.fullName,
                     isVerified: user.isVerified,
