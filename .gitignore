@@ -5,7 +5,7 @@
 /.pnp
 .pnp.js
 
-
+firebase-service-account.json
 # testing
 /coverage
 #DS_Store files
