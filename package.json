@@ -42,6 +42,7 @@
     "mongoose": "^8.16.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^6.10.0",
     "nodemon": "^3.1.7",
     "object-to-formdata": "^4.5.1",

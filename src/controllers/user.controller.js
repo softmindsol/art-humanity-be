@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import { JWT_ACCESS_TOKEN_SECRET_KEY, CLIENT_URL } from '../config/env.config.js';
 import { ApiError } from '../utils/api.utils.js'
 import admin from '../config/firebase.js';
+import { uploadOnCloudinary } from '../utils/cloudinary.js';
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
@@ -233,7 +234,8 @@ export const userController = {
                     email: user.email,
                     fullName: user.fullName,
                     isVerified: user.isVerified,
-                    createdAt: user.createdAt
+                    createdAt: user.createdAt,
+                    avatar: user.avatar || null // Include avatar if exists
                 }
             });
         } catch (error) {
@@ -276,6 +278,45 @@ export const userController = {
 
         res.json({ success: true, message: "Password verified" });
     },
+   
+     updateUser : async (req, res) => {
+         try {
+             const { fullName, password } = req.body;
+             const { id } = req.params;
+
+             // Build update object
+             const updateData = {};
+             if (fullName) {
+                 updateData.fullName = fullName;
+             }
+
+             if (password) {
+                 updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
+             }
+
+             if (req.file?.path) {
+                 const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+                 if (cloudinaryResponse?.url) {
+                     updateData.avatar = cloudinaryResponse.url; // ✅ Save to avatar
+                    //  deleteLocalFile(req.file.path);
+                 }
+             }
+
+             const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
+                 .select("-password -verificationToken"); // exclude sensitive fields
+
+             if (!updatedUser) {
+                 return res.status(404).json({ success: false, message: "User not found" });
+             }
+
+             res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
+         } catch (err) {
+             console.error("Update user error:", err);
+             res.status(500).json({ success: false, message: "Server error", error: err.message });
+        }
+    },    
+    
+ 
     forgotPassword: async (req, res) => {
         const { email } = req.body;
         if (!email) throw new ApiError(400, "Email is required");
