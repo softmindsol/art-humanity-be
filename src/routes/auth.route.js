@@ -1,5 +1,5 @@
 import express from 'express';
-import { userController } from '../controllers/user.controller.js';
+import { userController } from '../controllers/auth.controller.js';
 import upload from '../middlewares/multer.middleware.js';
 const router = express.Router();
 
@@ -14,7 +14,7 @@ router.route("/update-profile/:id").put(upload.single("profileImage"), userContr
 
 router.route('/reset-password/:token').post(userController.resetPassword);
 router.route("/firebase-login").post(userController.firebaseLogin);
-
+router.route('/logout').post(userController.logoutUser)
 // ✅ Protected route
 router.route('/:id').get(userController.getUser);
 

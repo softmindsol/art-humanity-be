@@ -204,7 +204,7 @@ export const userController = {
             const newAccessToken = jwt.sign(
                 { id: decoded.id, email: decoded.email },
                 JWT_ACCESS_TOKEN_SECRET_KEY,
-                { expiresIn: '15m' } // Access token expiration (1 minute for demo)
+                { expiresIn: '24h' } // Access token expiration (1 minute for demo)
             );
 
             res.cookie('accessToken', newAccessToken, {
@@ -249,10 +249,6 @@ export const userController = {
             if (!refreshToken) {
                 return res.status(400).json({ success: false, message: 'No refresh token provided' });
             }
-
-
-
-
             await Token.deleteOne({ refreshToken });
 
             // Clear cookies
@@ -278,45 +274,45 @@ export const userController = {
 
         res.json({ success: true, message: "Password verified" });
     },
-   
-     updateUser : async (req, res) => {
-         try {
-             const { fullName, password } = req.body;
-             const { id } = req.params;
 
-             // Build update object
-             const updateData = {};
-             if (fullName) {
-                 updateData.fullName = fullName;
-             }
+    updateUser: async (req, res) => {
+        try {
+            const { fullName, password } = req.body;
+            const { id } = req.params;
 
-             if (password) {
-                 updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
-             }
+            // Build update object
+            const updateData = {};
+            if (fullName) {
+                updateData.fullName = fullName;
+            }
 
-             if (req.file?.path) {
-                 const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
-                 if (cloudinaryResponse?.url) {
-                     updateData.avatar = cloudinaryResponse.url; // ✅ Save to avatar
+            if (password) {
+                updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
+            }
+
+            if (req.file?.path) {
+                const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+                if (cloudinaryResponse?.url) {
+                    updateData.avatar = cloudinaryResponse.url; // ✅ Save to avatar
                     //  deleteLocalFile(req.file.path);
-                 }
-             }
+                }
+            }
 
-             const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
-                 .select("-password -verificationToken"); // exclude sensitive fields
+            const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
+                .select("-password -verificationToken"); // exclude sensitive fields
 
-             if (!updatedUser) {
-                 return res.status(404).json({ success: false, message: "User not found" });
-             }
+            if (!updatedUser) {
+                return res.status(404).json({ success: false, message: "User not found" });
+            }
 
-             res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
-         } catch (err) {
-             console.error("Update user error:", err);
-             res.status(500).json({ success: false, message: "Server error", error: err.message });
+            res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
+        } catch (err) {
+            console.error("Update user error:", err);
+            res.status(500).json({ success: false, message: "Server error", error: err.message });
         }
-    },    
-    
- 
+    },
+
+
     forgotPassword: async (req, res) => {
         const { email } = req.body;
         if (!email) throw new ApiError(400, "Email is required");
@@ -375,6 +371,8 @@ export const userController = {
         });
 
     },
+
+
     firebaseLogin: async (req, res) => {
         const { token } = req.body;
 
@@ -386,16 +384,64 @@ export const userController = {
             const decoded = await admin.auth().verifyIdToken(token);
 
             let user = await User.findOne({ firebaseUid: decoded.uid });
+            console.log("user:", user)
             if (!user) {
                 user = await User.create({
                     firebaseUid: decoded.uid,
                     email: decoded.email,
-                    name: decoded.name || decoded.email,
-                    avatar: decoded.picture
+                    fullName: decoded.name ,
+                    avatar: decoded.picture,
+                    isVerified: true,
+                   
+                    createdAt: new Date(),
                 });
+            } else if (!user.isVerified) {
+                user.isVerified = true;
+                await user.save();
             }
 
-            res.status(200).json({ success: true, user });
+            // ✅ Generate tokens using same secret and logic
+            const accessToken = jwt.sign(
+                { id: user._id, email: user.email },
+                JWT_ACCESS_TOKEN_SECRET_KEY,
+                { expiresIn: '15m' }
+            );
+            const refreshToken = jwt.sign(
+                { id: user._id, email: user.email },
+                JWT_ACCESS_TOKEN_SECRET_KEY,
+                { expiresIn: '7d' }
+            );
+
+            // ✅ Save refresh token to DB
+            await Token.create({ userId: user._id, token: refreshToken });
+
+            // ✅ Set cookies (same config as loginUser)
+            res.cookie('accessToken', accessToken, {
+                httpOnly: false, // Same as your existing logic (but consider true in prod)
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 15 * 60 * 1000
+            });
+
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: false,
+                secure: process.env.NODE_ENV === 'production',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+
+            // ✅ Return same user info structure
+            res.status(200).json({
+                success: true,
+                data: {
+                    id: user._id,
+                    email: user.email,
+                    fullName: decoded.name,
+                    avatar: user.avatar,
+                    isVerified: user.isVerified,
+                   
+                    token: accessToken
+                }
+            });
+
         } catch (err) {
             console.error("Firebase Auth Error:", err);
             res.status(401).json({ success: false, message: "Invalid Firebase token" });
