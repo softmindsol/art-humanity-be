@@ -389,10 +389,10 @@ export const userController = {
                 user = await User.create({
                     firebaseUid: decoded.uid,
                     email: decoded.email,
-                    fullName: decoded.name ,
+                    fullName: decoded.name,
                     avatar: decoded.picture,
                     isVerified: true,
-                   
+
                     createdAt: new Date(),
                 });
             } else if (!user.isVerified) {
@@ -437,7 +437,7 @@ export const userController = {
                     fullName: decoded.name,
                     avatar: user.avatar,
                     isVerified: user.isVerified,
-                   
+
                     token: accessToken
                 }
             });
