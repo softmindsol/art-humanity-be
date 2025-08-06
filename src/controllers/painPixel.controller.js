@@ -64,7 +64,7 @@ class PaintPixelController {
         }
     }
 
-    // Get canvas data for a session
+    // Get canvas data for a session5
     static async getCanvasData(req, res) {
         try {
             const { sessionId } = req.params;
