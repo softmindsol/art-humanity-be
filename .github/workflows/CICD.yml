@@ -42,7 +42,7 @@ jobs:
             ICON="❌"
           fi
   
-          MESSAGE="┌─────────────────────────────┐\n$ICON *Production Deployment Completed*\n└─────────────────────────────┘\n\n• *Repository:* <https://github.com/$REPO|Art Humanity FE>\n• *Branch:* \`main\`\n• *Status:* *$STATUS*\n• *Triggered by:* $ACTOR"
+          MESSAGE="┌─────────────────────────────┐\n$ICON *Production Deployment Completed*\n└─────────────────────────────┘\n\n• *Repository:* <https://github.com/$REPO|Art Humanity BE>\n• *Branch:* \`main\`\n• *Status:* *$STATUS*\n• *Triggered by:* $ACTOR"
   
           curl -X POST -H 'Content-type: application/json' \
           --data "{\"text\":\"$MESSAGE\"}" \
