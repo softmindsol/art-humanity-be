@@ -7,7 +7,8 @@ const router = express.Router();
 // Create a new paint stroke
 router.route('/stroke')
     .post(PaintPixelController.createStroke);
-
+router.route('/timelapse/:sessionId')
+    .get(PaintPixelController.generateTimelapse); // Hum yeh controller function abhi banayenge
 // Batch create multiple strokes
 router.route('/strokes/batch')
     .post(PaintPixelController.batchCreateStrokes);

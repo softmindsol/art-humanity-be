@@ -10,7 +10,8 @@ import { swaggerServe, swaggerSetup } from './swagger.js';
 import { CORS_ALLOWED_ORIGINS } from './src/config/env.config.js';
 import { ApiError } from './src/utils/api.utils.js';
 import logger from './src/utils/logger.utils.js';
-
+import { fileURLToPath } from 'url';
+import path from 'path';
 const app = express()
 // This will solve CORS Policy Error
 app.use(
@@ -32,7 +33,14 @@ app.use(
 
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
-app.use(express.static('public'))
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Static file serving (videos, images, etc.)
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Passport Middleware
 app.use(passport.initialize());
 // Cookie Parser
