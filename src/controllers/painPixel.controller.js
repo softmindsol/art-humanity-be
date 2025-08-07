@@ -1,5 +1,5 @@
 import {PaintPixel} from '../models/painPixel.model.js';
-
+import { v4 as uuidv4 } from 'uuid';
 class PaintPixelController {
 
     // Create a new paint stroke
@@ -20,13 +20,13 @@ class PaintPixelController {
             } = req.body;
 
             // Get or create session ID
-            // let sessionId = req.session?.id || req.headers['x-session-id'];
-            // if (!sessionId) {
-            //     sessionId = uuidv4();
-            //     if (req.session) {
-            //         req.session.id = sessionId;
-            //     }
-            // }
+            let sessionId = req.session?.id || req.headers['x-session-id'];
+            if (!sessionId) {
+                sessionId = uuidv4();
+                if (req.session) {
+                    req.session.id = sessionId;
+                }
+            }
 
             const paintPixel = new PaintPixel({
                 canvasResolution,
@@ -36,7 +36,7 @@ class PaintPixelController {
                 brushSize,
                 color,
                 mode,
-                // sessionId,
+                sessionId,
                 userId: req.user?.id || null,
                 zoomLevel,
                 canvasOffset,
