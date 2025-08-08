@@ -153,6 +153,96 @@ class PaintPixelController {
         }
     }
 
+    // static async generateTimelapse(req, res) {
+    //     try {
+    //         const { sessionId } = req.params;
+    //         const projectWidth = 1024;
+    //         const projectHeight = 1024;
+
+    //         const strokes = await PaintPixel.find({ sessionId }).sort({ createdAt: 'asc' }).lean();
+    //         if (strokes.length === 0) {
+    //             return res.status(404).json({ success: false, message: "No strokes found." });
+    //         }
+
+    //         const frameDir = `./temp_frames_${sessionId}`;
+    //         if (!fs.existsSync(frameDir)) fs.mkdirSync(frameDir);
+
+    //         const canvas = createCanvas(projectWidth, projectHeight);
+    //         const ctx = canvas.getContext('2d');
+    //         ctx.fillStyle = '#ffffff';
+    //         ctx.fillRect(0, 0, projectWidth, projectHeight);
+
+    //         console.log(`[Timelapse] Generating ${strokes.length} frames...`);
+    //         for (let i = 0; i < strokes.length; i++) {
+    //             const stroke = strokes[i];
+    //             if (!stroke.strokePath || stroke.strokePath.length === 0) continue;
+
+    //             const { r, g, b, a } = stroke.color;
+    //             ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+    //             ctx.lineWidth = stroke.brushSize;
+    //             ctx.lineCap = 'round';
+    //             ctx.lineJoin = 'round';
+    //             ctx.globalCompositeOperation = stroke.mode === 'eraser' ? 'destination-out' : 'source-over';
+
+    //             ctx.beginPath();
+    //             stroke.strokePath.forEach((path, index) => {
+    //                 if (index === 0) ctx.moveTo(path.fromX, path.fromY);
+    //                 ctx.lineTo(path.toX, path.toY);
+    //             });
+    //             ctx.stroke();
+
+    //             const frameNumber = String(i).padStart(6, '0');
+    //             const framePath = path.join(frameDir, `frame-${frameNumber}.png`);
+    //             fs.writeFileSync(framePath, canvas.toBuffer('image/png'));
+    //         }
+
+    //         console.log(`[Timelapse] Stitching video with FFmpeg.`);
+    //         const outputPath = path.resolve(process.cwd(), 'public', `timelapse_${sessionId}.mp4`);
+
+    //         await new Promise((resolve, reject) => {
+    //             const command = ffmpeg(path.join(frameDir, 'frame-%06d.png'));
+
+    //             // ==========================================================
+    //             // ** THE FIX IS HERE **
+    //             // ==========================================================
+    //             // Step 1: FFmpeg ko batayein ke input images ko loop karna hai
+    //             // Yeh option `-i` (input file) se pehle lagana zaroori hai
+    //             command.inputOptions('-loop 1');
+
+    //             command
+    //                 .inputFPS(25)
+    //                 .videoCodec('libx264')
+    //                 .outputOptions('-pix_fmt yuv420p')
+
+    //                 // Step 2: Video ki kam se kam duration set karein
+    //                 .duration(3) // 3 seconds ki video banayega
+
+    //                 .output(outputPath)
+    //                 .on('end', () => {
+    //                     fs.rmSync(frameDir, { recursive: true, force: true });
+    //                     console.log('[Timelapse] Video created successfully.');
+    //                     resolve();
+    //                 })
+    //                 .on('error', (err) => {
+    //                     fs.rmSync(frameDir, { recursive: true, force: true });
+    //                     console.error('[Timelapse] FFmpeg error:', err.message);
+    //                     reject(err);
+    //                 })
+    //                 .run();
+    //         });
+
+    //         res.status(200).json({
+    //             success: true,
+    //             message: "Timelapse generated successfully!",
+    //             videoUrl: `/timelapse_${sessionId}.mp4`
+    //         });
+
+    //     } catch (error) {
+    //         console.error('Error generating timelapse:', error);
+    //         res.status(500).json({ success: false, error: 'Failed to generate timelapse' });
+    //     }
+    // }
+
     // Get canvas data for a session5
     static async getCanvasData(req, res) {
         try {

@@ -1,6 +1,5 @@
 // models/project.model.js
 import mongoose from 'mongoose';
-import { contributorSchema } from '../schemas/contributor.schema.js';
 
 const projectSchema = new mongoose.Schema({
     title: {
@@ -38,10 +37,10 @@ const projectSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    contributors: {
-        type: [contributorSchema],
-        default: []
-    },
+    // contributors: {
+    //     type: [contributorSchema],
+    //     default: []
+    // },
     isPaused: {
         type: Boolean,
         default: false

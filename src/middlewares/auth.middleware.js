@@ -4,7 +4,7 @@ import { JWT_ACCESS_TOKEN_SECRET_KEY } from '../config/env.config.js';
 
 export const authMiddleware = async (req, res, next) => {
     try {
-        const token = req.cookies.refreshToken; // Get token from cookies
+        const token = req.cookies.accessToken; // Get token from cookies
         if (!token) {
             return res.status(401).json({ success: false, message: 'No token provided' });
         }

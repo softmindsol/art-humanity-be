@@ -1,6 +1,5 @@
 import Project from "../models/project.model.js";
-import ApiError from "../utils/ApiError.js"; // Optional: Your custom error class
-import ApiResponse from "../utils/ApiResponse.js"; // Optional: Your custom response wrapper
+import { ApiError, ApiResponse } from "../utils/api.utils.js";
 
 // Create a new project
 export const createProject = async (req, res, next) => {
@@ -13,11 +12,12 @@ export const createProject = async (req, res, next) => {
             palette,
             targetCompletionDate,
             thumbnailUrl,
-            baseImageUrl
+            baseImageUrl,
+            userId
         } = req.body;
 
-        const userId = req.user?._id; // assuming auth middleware sets req.user
 
+        
         if (!userId) {
             throw new ApiError(401, "Unauthorized user");
         }
