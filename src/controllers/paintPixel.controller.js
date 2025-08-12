@@ -1,5 +1,5 @@
 import { createCanvas } from 'canvas';
-import {PaintPixel} from '../models/painPixel.model.js';
+import {PaintPixel} from '../models/paintPixel.model.js';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
@@ -20,6 +20,7 @@ class PaintPixelController {
                 brushSize,
                 color,
                 mode,
+                projectId,
                 sessionId,
                 zoomLevel,
                 canvasOffset,
@@ -37,6 +38,7 @@ class PaintPixelController {
                 brushSize,
                 color,
                 mode,
+                projectId,
                 sessionId,
                 userId: req.user?.id || null,
                 zoomLevel,
@@ -272,14 +274,43 @@ class PaintPixelController {
             });
         }
     }
+    
+    static async getStrokesByCanvasId(req, res) {
+        try {
+            const { canvasId } = req.params;
+            if (!canvasId) {
+                return res.status(400).json({ success: false, message: "Canvas ID is required." });
+            }
+
+            // Database se saare strokes dhoondhein jo is canvasId se match karte hain
+            // `sort({ createdAt: 'asc' })` bohot zaroori hai taaki strokes sahi order mein milen
+            const strokes = await PaintPixel.find({ canvasId }).sort({ createdAt: 'asc' }).lean();
+
+            res.status(200).json({
+                success: true,
+                data: strokes
+            });
+
+        } catch (error) {
+            console.error('Error fetching strokes by canvasId:', error);
+            res.status(500).json({ success: false, error: 'Failed to fetch strokes' });
+        }
+    }
 
     // Clear canvas for a session
     static async clearCanvas(req, res) {
         try {
-            const { sessionId } = req.params;
-            const { canvasResolution = 1 } = req.body;
+            // **CHANGE**: `req.params` se `sessionId` ke bajaye `canvasId` nikalein
+            const { canvasId } = req.params;
 
-            const result = await PaintPixel.clearCanvas(sessionId, Number(canvasResolution));
+            if (!canvasId) {
+                return res.status(400).json({ success: false, message: "Canvas ID is required." });
+            }
+
+            // **CHANGE**: `PaintPixel.deleteMany` ko `canvasId` ke basis par call karein
+            const result = await PaintPixel.deleteMany({ canvasId: canvasId });
+
+            console.log(`[Clear Canvas] Deleted ${result.deletedCount} strokes for canvasId: ${canvasId}`);
 
             res.status(200).json({
                 success: true,

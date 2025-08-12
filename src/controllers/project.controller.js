@@ -2,6 +2,8 @@ import Project from "../models/project.model.js";
 import { ApiError, ApiResponse } from "../utils/api.utils.js";
 
 // Create a new project
+
+// Create a new project
 export const createProject = async (req, res, next) => {
     try {
         const {
@@ -9,36 +11,49 @@ export const createProject = async (req, res, next) => {
             description,
             width,
             height,
-            palette,
+            canvasId,
             targetCompletionDate,
-            thumbnailUrl,
-            baseImageUrl,
-            userId
+            thumbnailUrl, // optional: if user pastes a URL instead of uploading
+            baseImageUrl, // optional
+            userId,
         } = req.body;
 
+        if (!userId) throw new ApiError(401, "Unauthorized user");
+        if (!title) throw new ApiError(400, "Title is required");
 
-        
-        if (!userId) {
-            throw new ApiError(401, "Unauthorized user");
-        }
+        // Build base for public URLs
+        const publicBase = `${req.protocol}://${req.get("host")}/public/uploads/projects`;
+
+        // If files were uploaded via multer, prefer those
+        const uploadedThumb = req.files?.thumbnail?.[0];
+        const uploadedBase = req.files?.baseImage?.[0];
+
+        const finalThumbnailUrl = uploadedThumb
+            ? `${publicBase}/${uploadedThumb.filename}`
+            : (thumbnailUrl || ""); // fallback to provided URL
+
+        const finalBaseImageUrl = uploadedBase
+            ? `${publicBase}/${uploadedBase.filename}`
+            : (baseImageUrl || "");
+
 
         const project = new Project({
             title,
             description,
-            width,
-            height,
-            palette,
-            targetCompletionDate,
-            thumbnailUrl,
-            baseImageUrl,
+            width: Number(width) || 0,
+            height: Number(height) || 0,
+            canvasId,
+            targetCompletionDate: targetCompletionDate || null,
+            thumbnailUrl: finalThumbnailUrl,
+            baseImageUrl: finalBaseImageUrl,
             ownerId: userId,
             contributors: [
                 {
                     userId,
-                    role: "project_owner", // default role of the creator
-                    joinedAt: new Date()
-                }
-            ]
+                    role: "project_owner",
+                    joinedAt: new Date(),
+                },
+            ],
         });
 
         await project.save();
@@ -71,10 +86,7 @@ export const getProjectById = async (req, res, next) => {
     try {
         const { projectId } = req.params;
 
-        const project = await Project.findById(projectId).populate(
-            "contributors.userId",
-            "fullName email"
-        );
+        const project = await Project.findById(projectId);
 
         if (!project) {
             throw new ApiError(404, "Project not found");

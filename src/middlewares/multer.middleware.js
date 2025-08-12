@@ -1,28 +1,17 @@
-// src/middleware/multer.js
-import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+// src/utils/multer.js
+import path from "path";
+import fs from "fs";
+import multer from "multer";
 
-// 🔐 Configure Cloudinary credentials
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const uploadDir = path.resolve(process.cwd(), "public", "uploads", "projects");
+fs.mkdirSync(uploadDir, { recursive: true });
 
-// 📦 Create a Cloudinary storage instance
-const storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: async (req, file) => {
-        return {
-            folder: 'uploads', // cloud folder name
-            resource_type: file.mimetype.startsWith('video') ? 'video' : 'image',
-            allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mpeg', 'ico'],
-            public_id: file.originalname.split('.')[0], // optional
-        };
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_req, file, cb) => {
+        const safe = file.originalname.replace(/\s+/g, "-");
+        cb(null, `${Date.now()}-${safe}`);
     },
 });
 
-const upload = multer({ storage });
-
-export default upload;
+export const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });

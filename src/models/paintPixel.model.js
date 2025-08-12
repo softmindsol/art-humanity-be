@@ -92,6 +92,12 @@ const paintPixelSchema = new mongoose.Schema({
         enum: ['brush', 'eraser'],
         default: 'brush'
     },
+    projectId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Project', // Yeh 'Project' model se jod raha hai
+        required: true,
+        index: true
+    }, 
 
     // Session and User Data
     sessionId: {

@@ -1,5 +1,5 @@
 import express from 'express';
-import {PaintPixelController} from '../controllers/painPixel.controller.js';
+import {PaintPixelController} from '../controllers/paintPixel.controller.js';
 const router = express.Router();
 
 
@@ -13,12 +13,15 @@ router.route('/timelapse/:sessionId')
 router.route('/strokes/batch')
     .post(PaintPixelController.batchCreateStrokes);
 
+// GET /api/v1/canvas/:canvasId -> Ek canvas ke saare strokes laana
+router.route('/canvas/:canvasId')
+    .get(PaintPixelController.getStrokesByCanvasId);
 // Get canvas data for a session
 router.route('/canvas/:sessionId')
     .get(PaintPixelController.getCanvasData);
 
 // Clear canvas for a session
-router.route('/canvas/:sessionId/clear')
+router.route('/canvas/:canvasId/clear')
     .delete(PaintPixelController.clearCanvas);
 
 // Get tile data for efficient rendering

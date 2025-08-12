@@ -10,6 +10,12 @@ const projectSchema = new mongoose.Schema({
     description: {
         type: String
     },
+    canvasId: {
+        type: String,
+        required: true,
+        unique: true, // Har canvas ki ID unique honi chahiye
+        index: true
+    },
     width: {
         type: Number,
         required: true
@@ -17,10 +23,6 @@ const projectSchema = new mongoose.Schema({
     height: {
         type: Number,
         required: true
-    },
-    palette: {
-        type: [String], // list of hex codes
-        default: []
     },
     targetCompletionDate: {
         type: Date
