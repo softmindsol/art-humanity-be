@@ -43,7 +43,7 @@ app.use(
   express.static(path.resolve(process.cwd(), "public"))
 );
 // Static file serving (videos, images, etc.)
-// app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Passport Middleware
 app.use(passport.initialize());
