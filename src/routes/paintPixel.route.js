@@ -7,8 +7,11 @@ const router = express.Router();
 // Create a new paint stroke
 router.route('/stroke')
     .post(PaintPixelController.createStroke);
-router.route('/timelapse/:sessionId')
+
+router.route('/timelapse/:projectId')
     .get(PaintPixelController.generateTimelapse); // Hum yeh controller function abhi banayenge
+
+    
 // Batch create multiple strokes
 router.route('/strokes/batch')
     .post(PaintPixelController.batchCreateStrokes);
@@ -21,7 +24,7 @@ router.route('/canvas/:sessionId')
     .get(PaintPixelController.getCanvasData);
 
 // Clear canvas for a session
-router.route('/canvas/:canvasId/clear')
+router.route('/canvas/:projectId/clear')
     .delete(PaintPixelController.clearCanvas);
 
 // Get tile data for efficient rendering

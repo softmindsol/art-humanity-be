@@ -1,30 +1,39 @@
+// models/Contribution.js (Naya aur Behtar Schema)
+
 import mongoose from 'mongoose';
+const { Schema } = mongoose;
 
-const pixelSchema = new mongoose.Schema({
-    x: { type: Number, required: true },
-    y: { type: Number, required: true },
-    color: { type: String, required: true } // e.g. #FF0000
-}, { _id: false });
+// Yeh schema har line/stroke ka data store karega
+const StrokeSchema = new Schema({
+    strokePath: { type: Schema.Types.Mixed, required: true },
+    brushSize: { type: Number, required: true },
+    color: { type: Schema.Types.Mixed, required: true },
+    mode: { type: String, enum: ['brush', 'eraser'], required: true }
+}, { _id: false }); // Strokes ki alag ID ki zaroorat nahi
 
-const contributionSchema = new mongoose.Schema({
+// Yeh hamara main model hoga
+const ContributionSchema = new Schema({
     projectId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'Project',
-        required: true
+        required: true,
+        index: true
     },
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    pixels: {
-        type: [pixelSchema],
-        required: true
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now 
-    }
+    // --- EMBEDDING ---
+    // Yahan hum poora stroke ka array save karenge
+    // Yeh paintPixelSchema ki 'strokePath' aur contributionSchema ke 'grouping' ko milata hai
+    strokes: [StrokeSchema],
+
+    // Future ke liye
+    upvotes: { type: Number, default: 0 },
+    downvotes: { type: Number, default: 0 }
+}, {
+    timestamps: true // `createdAt` aur `updatedAt` khud add ho jayenge
 });
 
-export default mongoose.model('Contribution', contributionSchema);
+export default mongoose.model('Contribution', ContributionSchema);

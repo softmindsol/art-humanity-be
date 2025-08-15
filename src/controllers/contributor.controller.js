@@ -1,37 +1,48 @@
-import projectModel from "../models/project.model";
+import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
+import { ApiError, ApiResponse } from "../utils/api.utils.js";
 
-export const createContribution = async (req, res) => {
+// 1. Nayi Contribution Save Karne ke liye
+export const createContribution = async (req, res, next) => {
     try {
-        const { projectId, pixels } = req.body;
-        const userId = req.user._id; // assuming you're using auth middleware
+        const { projectId, strokes, userId } = req.body;
 
-        // Validate project existence
-        const project = await projectModel.findById(projectId);
-        if (!project) return res.status(404).json({ message: 'Project not found' });
 
-        // Create and save contribution
-        const contribution = new Contribution({ projectId, userId, pixels });
-        await contribution.save();
-
-        // Update project stats (pixel count & contributor count)
-        project.stats.pixelCount += pixels.length;
-
-        const alreadyContributor = project.contributors.some(
-            (c) => c.userId.toString() === userId.toString()
-        );
-        if (!alreadyContributor) {
-            project.stats.contributorCount += 1;
-            project.contributors.push({ userId });
+        if (!projectId || !strokes || !Array.isArray(strokes) || strokes.length === 0) {
+            throw new ApiError(400, "Project ID and a non-empty strokes array are required.");
         }
 
-        await project.save();
-
-        res.status(201).json({
-            message: 'Contribution saved successfully',
-            contribution
+        // Naya contribution document banayein
+        const newContribution = new Contribution({
+            projectId,
+            userId,
+            strokes: strokes // Frontend se poora strokes ka array yahan save hoga
         });
-    } catch (error) {
-        console.error('Create contribution error:', error);
-        res.status(500).json({ message: 'Server error' });
+
+        const savedContribution = await newContribution.save();
+
+        res.status(201).json(new ApiResponse(201, savedContribution, "Contribution saved successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+// 2. Project ki Tamam Contributions Load Karne ke liye
+export const getProjectContributions = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        // Sirf ek query se tamam data mil jayega
+        const contributions = await Contribution.find({ projectId }).sort({ createdAt: 'asc' });
+
+        if (!contributions) {
+            // Khaali array bhejna behtar hai 404 se
+            return res.status(200).json(new ApiResponse(200, [], "No contributions found for this project."));
+        }
+
+        res.status(200).json(new ApiResponse(200, contributions, "Contributions fetched successfully."));
+
+    } catch (err) {
+        next(err);
     }
 };

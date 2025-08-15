@@ -301,16 +301,16 @@ class PaintPixelController {
     static async clearCanvas(req, res) {
         try {
             // **CHANGE**: `req.params` se `sessionId` ke bajaye `canvasId` nikalein
-            const { canvasId } = req.params;
+            const { projectId } = req.params;
 
-            if (!canvasId) {
+            if (!projectId) {
                 return res.status(400).json({ success: false, message: "Canvas ID is required." });
             }
 
             // **CHANGE**: `PaintPixel.deleteMany` ko `canvasId` ke basis par call karein
-            const result = await PaintPixel.deleteMany({ canvasId: canvasId });
+            const result = await PaintPixel.deleteMany({ projectId: projectId });
 
-            console.log(`[Clear Canvas] Deleted ${result.deletedCount} strokes for canvasId: ${canvasId}`);
+            console.log(`[Clear Canvas] Deleted ${result.deletedCount} strokes for canvasId: ${projectId}`);
 
             res.status(200).json({
                 success: true,
