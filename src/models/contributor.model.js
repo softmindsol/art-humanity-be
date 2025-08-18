@@ -31,7 +31,14 @@ const ContributionSchema = new Schema({
 
     // Future ke liye
     upvotes: { type: Number, default: 0 },
-    downvotes: { type: Number, default: 0 }
+    downvotes: { type: Number, default: 0 },
+    // Ek aur field add karna behtar hai:
+    voters: [{
+        userId: { type: Schema.Types.ObjectId, ref: 'User' },
+        voteType: { type: String, enum: ['up', 'down'] }
+    }],
+    thumbnailUrl: { type: String, default: '' }, // Naya field
+
 }, {
     timestamps: true // `createdAt` aur `updatedAt` khud add ho jayenge
 });

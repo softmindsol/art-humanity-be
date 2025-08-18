@@ -1,10 +1,13 @@
 import { createCanvas } from 'canvas';
-import {PaintPixel} from '../models/paintPixel.model.js';
+import { PaintPixel } from '../models/paintPixel.model.js';
+import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
+
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import path from 'path';
+import { ApiResponse } from '../utils/api.utils.js';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 class PaintPixelController {
@@ -29,11 +32,11 @@ class PaintPixelController {
             } = req.body;
 
             // Get or create session ID
-         
+
             const paintPixel = new PaintPixel({
                 canvasResolution,
                 canvasSize,
-                canvasId ,
+                canvasId,
                 strokePath,
                 brushSize,
                 color,
@@ -246,7 +249,7 @@ class PaintPixelController {
     // }
 
     // Get canvas data for a session5
-    static async getCanvasData(req, res) {
+    static async getCanvasData(req, res,) {
         try {
             const { sessionId } = req.params;
             const { canvasResolution = 1, limit = 1000, offset = 0 } = req.query;
@@ -274,7 +277,7 @@ class PaintPixelController {
             });
         }
     }
-    
+
     static async getStrokesByCanvasId(req, res) {
         try {
             const { canvasId } = req.params;
@@ -298,33 +301,26 @@ class PaintPixelController {
     }
 
     // Clear canvas for a session
-    static async clearCanvas(req, res) {
+    static async clearCanvas(req, res, next) {
         try {
-            // **CHANGE**: `req.params` se `sessionId` ke bajaye `canvasId` nikalein
             const { projectId } = req.params;
-
+            console.log(projectId)
             if (!projectId) {
-                return res.status(400).json({ success: false, message: "Canvas ID is required." });
+                throw new ApiError(400, "Project ID is required.");
             }
 
-            // **CHANGE**: `PaintPixel.deleteMany` ko `canvasId` ke basis par call karein
-            const result = await PaintPixel.deleteMany({ projectId: projectId });
+            // Sirf ek line ka code: Naye Contribution model se delete karein
+            const result = await Contribution.deleteMany({ projectId: projectId });
+           
+            console.log(`[Clear Canvas] Deleted ${result.deletedCount} contributions for project: ${projectId}`);
 
-            console.log(`[Clear Canvas] Deleted ${result.deletedCount} strokes for canvasId: ${projectId}`);
+            res.status(200).json(new ApiResponse(200,
+                { deletedCount: result.deletedCount },
+                `Cleared ${result.deletedCount} contributions from the project`
+            ));
 
-            res.status(200).json({
-                success: true,
-                message: `Cleared ${result.deletedCount} strokes from canvas`,
-                deletedCount: result.deletedCount
-            });
-
-        } catch (error) {
-            console.error('Error clearing canvas:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Failed to clear canvas',
-                details: error.message
-            });
+        } catch (err) {
+            next(err);
         }
     }
 
@@ -539,4 +535,4 @@ class PaintPixelController {
     }
 }
 
-export {PaintPixelController};
+export { PaintPixelController };
