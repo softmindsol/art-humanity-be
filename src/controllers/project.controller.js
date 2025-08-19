@@ -48,11 +48,7 @@ export const createProject = async (req, res, next) => {
             baseImageUrl: finalBaseImageUrl,
             ownerId: userId,
             contributors: [
-                {
-                    userId,
-                    role: "project_owner",
-                    joinedAt: new Date(),
-                },
+
             ],
         });
 
@@ -93,6 +89,40 @@ export const getProjectById = async (req, res, next) => {
         }
 
         res.status(200).json(new ApiResponse(200, project, "Project found"));
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const joinProject = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { userId } = req.body; // Auth middleware se user ki ID hasil karein
+
+        if (!userId) {
+            throw new ApiError(401, "Unauthorized. Please log in to join the project.");
+        }
+
+        // $addToSet operator ka istemal karein.
+        // Yeh userId ko 'contributors' array mein sirf tab add karega agar woh pehle se mojood na ho.
+        // Yeh race conditions se bachata hai aur code ko saaf rakhta hai.
+        const updatedProject = await Project.findByIdAndUpdate(
+            projectId,
+            { $addToSet: { contributors: userId } },
+            { new: true } // Yeh option zaroori hai taake Mongoose updated document wapas bheje
+        );
+
+        if (!updatedProject) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+        // Project ke stats mein contributor count ko bhi update karein.
+
+        updatedProject.stats.contributorCount = updatedProject.contributors.length;
+        await updatedProject.save();
+
+        res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined the project as a contributor."));
+
     } catch (err) {
         next(err);
     }

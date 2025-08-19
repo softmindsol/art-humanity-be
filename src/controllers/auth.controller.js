@@ -178,7 +178,8 @@ export const userController = {
                     username: user.username,
                     email: user.email,
                     fullName: user.fullName,
-                    token: accessToken
+                    token: accessToken,
+                    role: user.role 
                 }
             });
         } catch (error) {
@@ -235,7 +236,8 @@ export const userController = {
                     fullName: user.fullName,
                     isVerified: user.isVerified,
                     createdAt: user.createdAt,
-                    avatar: user.avatar || null // Include avatar if exists
+                    avatar: user.avatar || null ,// Include avatar if exists
+                    role: user.role // Include role
                 }
             });
         } catch (error) {

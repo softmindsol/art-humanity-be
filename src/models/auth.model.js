@@ -29,6 +29,13 @@ const userSchema = new Schema({
         // required: true,
         minlength: 6
     },
+    // --- ADD THIS NEW FIELD ---
+    role: {
+        type: String,
+        enum: ['user', 'admin'], // Only these two values are allowed
+        default: 'user'         // By default, every new user is a 'user'
+    },
+
     isVerified: {
         type: Boolean,
         default: false

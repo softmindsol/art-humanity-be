@@ -13,7 +13,7 @@ const projectSchema = new mongoose.Schema({
     canvasId: {
         type: String,
         required: true,
-        unique: true, // Har canvas ki ID unique honi chahiye
+        unique: true,
         index: true
     },
     width: {
@@ -32,17 +32,21 @@ const projectSchema = new mongoose.Schema({
         required: true
     },
     baseImageUrl: {
-        type: String // optional
+        type: String
     },
     ownerId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
-    },
-    // contributors: {
-    //     type: [contributorSchema],
-    //     default: []
-    // },
+    }, 
+
+    // --- YAHAN TABDEELI HAI ---
+    // Yeh array un tamam users ki IDs store karega jinhon ne is project ko "join" kiya hai.
+    contributors: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User' // Yeh 'User' model se link hai
+    }],
+
     isPaused: {
         type: Boolean,
         default: false
@@ -56,14 +60,9 @@ const projectSchema = new mongoose.Schema({
         contributorCount: { type: Number, default: 0 },
         percentComplete: { type: Number, default: 0 }
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
+    // Timestamps ke liye Mongoose ka built-in option istemal karna behtar hai
+}, {
+    timestamps: true // Yeh `createdAt` aur `updatedAt` khud manage karega
 });
 
 export default mongoose.model('Project', projectSchema);

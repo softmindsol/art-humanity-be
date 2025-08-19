@@ -70,36 +70,49 @@ class PaintPixelController {
 
 
     static async generateTimelapse(req, res) {
+        const { projectId } = req.params;
+        const projectWidth = 1024;
+        const projectHeight = 1024;
+
         try {
-            const { sessionId } = req.params;
-            const projectWidth = 1024;
-            const projectHeight = 1024;
+            console.log(`[Timelapse] Fetching contributions for project: ${projectId}`);
 
-            console.log(`[Timelapse] Fetching strokes for session: ${sessionId}`);
-            const strokes = await PaintPixel.find({ sessionId }).sort({ createdAt: 'asc' }).lean();
+            // CHANGE 2: Contribution model se data fetch karein.
+            const contributions = await Contribution.find({ projectId }).sort({ createdAt: 'asc' }).lean();
 
-            if (strokes.length === 0) {
-                return res.status(404).json({ success: false, message: "No strokes found for this session." });
+            if (contributions.length === 0) {
+                return res.status(404).json({ success: false, message: "No contributions found for this project." });
             }
 
-            console.log(`[Timelapse] Found ${strokes.length} strokes. Setting up virtual canvas.`);
+            // CHANGE 3: Tamam contributions ke strokes ko ek single, flat array mein milayein.
+            // flatMap() har contribution ke 'strokes' array ko nikaal kar ek bari list bana dega.
+            const allStrokes = contributions.flatMap(contrib => contrib.strokes);
+
+            if (allStrokes.length === 0) {
+                return res.status(404).json({ success: false, message: "No drawable strokes found." });
+            }
+
+            console.log(`[Timelapse] Found ${contributions.length} contributions with a total of ${allStrokes.length} strokes.`);
             const canvas = createCanvas(projectWidth, projectHeight);
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, projectWidth, projectHeight);
 
-            const frameDir = `./temp_frames_${sessionId}`;
+            // Frame directory ab projectId par based hogi
+            const frameDir = `./temp_frames_${projectId}`;
             if (!fs.existsSync(frameDir)) {
                 fs.mkdirSync(frameDir);
             }
 
             console.log(`[Timelapse] Starting frame generation...`);
-            for (let i = 0; i < strokes.length; i++) {
-                const stroke = strokes[i];
+            // CHANGE 4: Ab hum 'allStrokes' array par loop chalayenge.
+            for (let i = 0; i < allStrokes.length; i++) {
+                const stroke = allStrokes[i];
                 if (!stroke.strokePath || stroke.strokePath.length === 0) continue;
 
+                // --- Baqi tamam drawing logic bilkul waisi hi rahegi! ---
                 const { r, g, b, a } = stroke.color;
-                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a || 1})`;
                 ctx.lineWidth = stroke.brushSize;
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
@@ -112,7 +125,6 @@ class PaintPixelController {
                 });
                 ctx.stroke();
 
-                // Har stroke ke baad ek frame save karein
                 const frameNumber = String(i).padStart(6, '0');
                 const framePath = path.join(frameDir, `frame-${frameNumber}.png`);
                 const buffer = canvas.toBuffer('image/png');
@@ -120,26 +132,22 @@ class PaintPixelController {
             }
 
             console.log(`[Timelapse] Frame generation complete. Stitching video with FFmpeg.`);
-            const outputPath = path.resolve(process.cwd(), 'public', `timelapse_${sessionId}.mp4`);
+            // Output file ab projectId par based hogi
+            const outputPath = path.resolve(process.cwd(), 'public', 'timelapses', `timelapse_${projectId}.mp4`);
+            fs.mkdirSync(path.dirname(outputPath), { recursive: true }); // Sunischit karein ke directory mojood hai
 
+            // --- Aapki behtareen FFMPEG logic waisi hi rahegi ---
             await new Promise((resolve, reject) => {
                 ffmpeg(path.join(frameDir, 'frame-%06d.png'))
                     .inputFPS(25)
                     .videoCodec('libx264')
-                    // ============================================
-                    // ** THE FIX IS HERE **
-                    // Sahi pixel format 'yuv420p' hai
-                    // ============================================
                     .outputOptions('-pix_fmt yuv420p')
-
                     .output(outputPath)
                     .on('end', () => {
                         fs.rmSync(frameDir, { recursive: true, force: true });
-                        console.log('[Timelapse] Video created successfully.');
                         resolve();
                     })
                     .on('error', (err) => {
-                        console.error('[Timelapse] FFmpeg error:', err);
                         fs.rmSync(frameDir, { recursive: true, force: true });
                         reject(err);
                     })
@@ -149,7 +157,7 @@ class PaintPixelController {
             res.status(200).json({
                 success: true,
                 message: "Timelapse generated successfully!",
-                videoUrl: `/timelapse_${sessionId}.mp4`
+                videoUrl: `/timelapses/timelapse_${projectId}.mp4` // URL ko bhi update karein
             });
 
         } catch (error) {
