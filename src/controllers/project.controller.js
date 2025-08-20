@@ -167,3 +167,18 @@ export const updateProjectStatus = async (req, res, next) => {
         next(err);
     }
 };
+
+export const getGalleryProjects = async (req, res, next) => {
+    try {
+        // Query database for projects where `isClosed` is true
+        const projects = await Project.find({ isClosed: true })
+            .select("-contributors") // We don't need the full contributor list on the gallery page
+            .sort({ updatedAt: -1 }); // Show the most recently completed projects first
+
+        res
+            .status(200)
+            .json(new ApiResponse(200, projects, "Fetched gallery projects successfully"));
+    } catch (err) {
+        next(err);
+    }
+};
