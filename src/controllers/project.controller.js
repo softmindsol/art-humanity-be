@@ -80,9 +80,9 @@ export const getActiveProjects = async (req, res, next) => {
 // Get single project by ID
 export const getProjectById = async (req, res, next) => {
     try {
-        const { projectId } = req.params;
-
-        const project = await Project.findById(projectId);
+        const { canvasId } = req.params;
+        console.log(canvasId)
+        const project = await Project.findOne({canvasId});
 
         if (!project) {
             throw new ApiError(404, "Project not found");
@@ -128,3 +128,42 @@ export const joinProject = async (req, res, next) => {
     }
 };
 
+
+// --- ADD THIS NEW CONTROLLER FUNCTION ---
+export const updateProjectStatus = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        // We will only allow specific fields to be updated through this route
+        const { isPaused, isClosed } = req.body;
+
+        // Build an object with only the fields that were provided in the request
+        const updateData = {};
+        if (typeof isPaused !== 'undefined') {
+            updateData.isPaused = isPaused;
+        }
+        if (typeof isClosed !== 'undefined') {
+            updateData.isClosed = isClosed;
+        }
+
+        // Check if there is anything to update
+        if (Object.keys(updateData).length === 0) {
+            throw new ApiError(400, "No valid fields provided for update.");
+        }
+
+        const updatedProject = await Project.findByIdAndUpdate(
+            projectId,
+            { $set: updateData }, // Use $set to update only the provided fields
+            { new: true }       // Return the updated document
+        );
+
+        if (!updatedProject) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+        res.status(200).json(new ApiResponse(200, updatedProject, "Project status updated successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
