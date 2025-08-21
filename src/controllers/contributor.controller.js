@@ -3,6 +3,7 @@ import { ApiError, ApiResponse } from "../utils/api.utils.js";
 import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
+import Project from "../models/project.model.js";
 
 const generateThumbnail = async (strokes) => {
     const THUMB_SIZE = 100; // Thumbnail ka size (100x100 pixels)
@@ -92,7 +93,40 @@ export const createContribution = async (req, res, next) => {
 
         const savedContribution = await newContribution.save();
 
-        res.status(201).json(new ApiResponse(201, savedContribution, "Contribution saved successfully."));
+        const project = await Project.findById(projectId);
+        if (project) {
+            // Step 3: Is nayi contribution mein "pixels" (segments) ki tadaad calculate karein
+            const pixelsInThisContribution = strokes.reduce((total, stroke) => {
+                return total + (stroke.strokePath?.length || 0);
+            }, 0);
+
+            // Step 4: Project ke stats ko update karein
+            project.stats.pixelCount = (project.stats.pixelCount || 0) + pixelsInThisContribution;
+
+            // Contributor count pehle se hi 'joinProject' mein handle ho raha hai,
+            // lekin hum yahan se bhi usay sync mein rakh sakte hain.
+            project.stats.contributorCount = project.contributors.length;
+
+            // Step 5: Percentage complete calculate karein
+            const totalCanvasPixels = project.width * project.height; // Farz karein har pixel 1 unit hai
+            if (totalCanvasPixels > 0) {
+                const percentage = (project.stats.pixelCount / totalCanvasPixels) * 100;
+                project.stats.percentComplete = Math.min(100, percentage); // 100 se zyada na ho
+            }
+
+            // Step 6: Updated project ko database mein save karein
+            await project.save();
+            // Step 4: Populate user data before sending response
+            const populatedContribution = await Contribution.findById(savedContribution._id)
+                .populate('userId', 'fullName email')
+                .lean();
+
+            // Step 5: Response
+            res.status(201).json(
+                new ApiResponse(201, populatedContribution, "Contribution saved successfully.")
+            );
+        }
+
 
     } catch (err) {
         next(err);
@@ -130,7 +164,7 @@ export const getProjectContributions = async (req, res, next) => {
 
         // Step 4: Database query mein .sort() method ka istemal karein.
         const contributions = await Contribution.find({ projectId })
-            .populate('userId', 'username fullName email') // populate waisa hi rahega
+            .populate('userId', 'fullName email') // populate waisa hi rahega
             .sort(sortOptions); // Yahan sorting apply hogi
 
         if (!contributions) {
