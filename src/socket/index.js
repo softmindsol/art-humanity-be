@@ -6,20 +6,20 @@ const initializeSocketIO = (io) => {
         // Event: Jab user kisi project page ko join karta hai
         socket.on('join_project', (projectId) => {
             socket.join(projectId);
-            console.log(`User ${socket.id} joined room: ${projectId}`);
+            // console.log(`User ${socket.id} joined room: ${projectId}`);
         });
 
         // Event: Jab ek user nayi drawing banata hai
         socket.on('new_drawing', (data) => {
             // YEH LINE ADD KAREIN
-            console.log("Received 'new_drawing' on backend with data:", data);
+            // console.log("Received 'new_drawing' on backend with data:", data);
 
             const { projectId, contribution } = data;
             socket.to(projectId).emit('drawing_received', contribution);
         });
         socket.on('cursor_move', (data) => {
             // YEH LINE ADD KAREIN
-            console.log("Cursor move event received on backend:", data);
+            // console.log("Cursor move event received on backend:", data);
 
             const { projectId, user, position } = data;
             socket.to(projectId).emit('cursor_update', {

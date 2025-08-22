@@ -273,3 +273,54 @@ export const deleteContribution = async (req, res, next) => {
         next(err);
     }
 };
+
+export const batchCreateContributions = async (req, res, next) => {
+    try {
+        // Frontend se poora contribution objects ka array aayega
+        const { projectId, contributions } = req.body;
+        console.log("Received contributions on backend:", JSON.stringify(contributions, null, 2));
+
+        if (!projectId || !contributions || !Array.isArray(contributions) || contributions.length === 0) {
+            throw new ApiError(400, "Project ID and a non-empty contributions array are required.");
+        }
+
+        // Mongoose `insertMany` ka istemal karein. Yeh bohat teiz hai.
+        const savedContributions = await Contribution.insertMany(contributions);
+
+        // --- Stats Update (Optimized) ---
+        const project = await Project.findById(projectId);
+        if (project) {
+            const totalPixelsInBatch = contributions.reduce((sum, contrib) => {
+                // Check karein ke `strokes` array mojood hai
+                if (contrib && Array.isArray(contrib.strokes)) {
+                    const pixelsInContrib = contrib.strokes.reduce((strokeSum, stroke) => {
+                        // Check karein ke `stroke` aur `stroke.strokePath` mojood hain
+                        if (stroke && Array.isArray(stroke.strokePath)) {
+                            return strokeSum + stroke.strokePath.length;
+                        }
+                        return strokeSum;
+                    }, 0);
+                    return sum + pixelsInContrib;
+                }
+                return sum;
+            }, 0);
+
+
+            // Project ke stats ko ek hi baar update karein
+            project.stats.pixelCount += totalPixelsInBatch;
+            const totalCanvasPixels = project.width * project.height;
+            if (totalCanvasPixels > 0) {
+                project.stats.percentComplete = Math.min(100, (project.stats.pixelCount / totalCanvasPixels) * 100);
+            }
+            await project.save();
+        }
+
+        // Response mein save hue tamam contributions wapas bhejein
+        res.status(201).json(
+            new ApiResponse(201, savedContributions, "Contributions batched and saved successfully.")
+        );
+
+    } catch (err) {
+        next(err);
+    }
+};

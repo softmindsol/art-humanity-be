@@ -1,9 +1,11 @@
 import express from 'express';
-import { createContribution, deleteContribution, getProjectContributions, voteOnContribution } from '../controllers/contributor.controller.js';
+import { batchCreateContributions, createContribution, deleteContribution, getProjectContributions, voteOnContribution } from '../controllers/contributor.controller.js';
 
 const router = express.Router();
 
 router.route('/').post(createContribution);
+router.route('/batch').post(batchCreateContributions); 
+
 // Route to get all contributions for a specific project
 router.route('/project/:projectId').get(getProjectContributions);
 // :id yahan contributionId hai
