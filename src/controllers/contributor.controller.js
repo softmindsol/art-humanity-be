@@ -1,77 +1,11 @@
 import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
 import { ApiError, ApiResponse } from "../utils/api.utils.js";
-import { createCanvas } from 'canvas';
-import fs from 'fs';
-import path from 'path';
+
 import Project from "../models/project.model.js";
 import drawingLogModel from '../models/drawingLog.model.js';
+import { generateThumbnail } from '../utils/generateThumbnail.utils.js';
 
-const generateThumbnail = async (strokes) => {
-    const THUMB_SIZE = 100; // Thumbnail ka size (100x100 pixels)
-    const canvas = createCanvas(THUMB_SIZE, THUMB_SIZE);
-    const ctx = canvas.getContext('2d');
 
-    // Background ko transparent ya safed rakhein
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, THUMB_SIZE, THUMB_SIZE);
-
-    // Tamam strokes ke coordinates dhoondein taake drawing ko center kar sakein
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    strokes.forEach(stroke => {
-        stroke.strokePath.forEach(p => {
-            minX = Math.min(minX, p.fromX, p.toX);
-            minY = Math.min(minY, p.fromY, p.toY);
-            maxX = Math.max(maxX, p.fromX, p.toX);
-            maxY = Math.max(maxY, p.fromY, p.toY);
-        });
-    });
-
-    const drawingWidth = maxX - minX;
-    const drawingHeight = maxY - minY;
-
-    if (drawingWidth === 0 || drawingHeight === 0) { // Agar sirf ek dot hai
-        // Is case ko handle karein ya default image return karein
-        return null;
-    }
-
-    // Scale aur offset calculate karein taake drawing thumbnail ke andar fit ho jaye
-    const scale = Math.min(THUMB_SIZE / drawingWidth, THUMB_SIZE / drawingHeight) * 0.9; // 90% size
-    const offsetX = (THUMB_SIZE - drawingWidth * scale) / 2 - minX * scale;
-    const offsetY = (THUMB_SIZE - drawingHeight * scale) / 2 - minY * scale;
-
-    // Har stroke ko chotay canvas par draw karein
-    strokes.forEach(stroke => {
-        const { r, g, b, a } = stroke.color;
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${a || 1})`;
-        ctx.lineWidth = stroke.brushSize * scale; // Brush size ko bhi scale karein
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        ctx.beginPath();
-        stroke.strokePath.forEach((pathSegment, index) => {
-            const fromX = pathSegment.fromX * scale + offsetX;
-            const fromY = pathSegment.fromY * scale + offsetY;
-            const toX = pathSegment.toX * scale + offsetX;
-            const toY = pathSegment.toY * scale + offsetY;
-
-            if (index === 0) ctx.moveTo(fromX, fromY);
-            else ctx.lineTo(toX, toY);
-        });
-        ctx.stroke();
-    });
-
-    // Image ko save karein
-    const fileName = `thumb_${Date.now()}.png`;
-    const filePath = path.resolve(process.cwd(), 'public', 'thumbnails', fileName);
-    const buffer = canvas.toBuffer('image/png');
-
-    // Sunischit karein ke directory mojood hai
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, buffer);
-
-    // File ka public URL wapas bhejein
-    return `/thumbnails/${fileName}`;
-};
 
 // 1. Nayi Contribution Save Karne ke liye
 export const createContribution = async (req, res, next) => {
@@ -299,6 +233,11 @@ export const batchCreateContributions = async (req, res, next) => {
             throw new ApiError(400, "Project ID and a non-empty contributions array are required.");
         }
 
+        for (const contrib of contributions) {
+            // Hum sirf strokes ka data bhejenge, jo generateThumbnail expect karta hai
+            const thumbnailUrl = await generateThumbnail(contrib.strokes);
+            contrib.thumbnailUrl = thumbnailUrl; // URL ko contribution object mein add karein
+        }
         // Mongoose `insertMany` ka istemal karein. Yeh bohat teiz hai.
         const savedContributions = await Contribution.insertMany(contributions);
 

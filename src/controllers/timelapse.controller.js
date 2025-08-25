@@ -6,13 +6,37 @@ import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import path from 'path';
 
+const drawStrokeOnCanvas = (ctx, stroke) => {
+    const { strokePath, brushSize, color, mode } = stroke;
+
+    ctx.lineWidth = brushSize;
+    ctx.strokeStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a || 1})`;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalCompositeOperation = mode === 'eraser' ? 'destination-out' : 'source-over';
+
+    ctx.beginPath();
+    strokePath.forEach((segment, index) => {
+        if (index === 0) {
+            ctx.moveTo(segment.fromX, segment.fromY);
+            ctx.lineTo(segment.toX, segment.toY);
+        } else {
+            ctx.lineTo(segment.toX, segment.toY);
+        }
+    });
+    ctx.stroke();
+};
+
 export const generateTimelapse = async (req, res, next) => {
     try {
         const { projectId } = req.params;
+
+        console.log(`[Timelapse] Starting generation for project: ${projectId}`);
+
         const project = await Project.findById(projectId);
         if (!project) throw new ApiError(404, "Project not found.");
 
-        const logs = await DrawingLog.find({ projectId }).sort({ createdAt: 'asc' });
+        const logs = await DrawingLog.find({ projectId }).sort({ createdAt: 'asc' }).lean();
         if (logs.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
 
         const canvas = createCanvas(project.width, project.height);
@@ -24,31 +48,43 @@ export const generateTimelapse = async (req, res, next) => {
         if (fs.existsSync(tempFramesDir)) fs.rmSync(tempFramesDir, { recursive: true, force: true });
         fs.mkdirSync(tempFramesDir, { recursive: true });
 
+        console.log(`[Timelapse] Generating ${logs.length} frames...`);
         // Har stroke ko ek frame ke tor par draw karein
         for (let i = 0; i < logs.length; i++) {
-            const log = logs[i];
-            const { strokePath, brushSize, color, mode } = log.stroke;
-            // ... (Yahan 'KonvaCanvas' jaisi drawing logic likhni hogi)
-            // ... (Har stroke ko ctx par draw karein)
-
-            const framePath = path.join(tempFramesDir, `frame-${String(i).padStart(5, '0')}.png`);
+            drawStrokeOnCanvas(ctx, logs[i].stroke);
+            const framePath = path.join(tempFramesDir, `frame-${String(i).padStart(6, '0')}.png`);
             fs.writeFileSync(framePath, canvas.toBuffer('image/png'));
         }
 
         const outputPath = path.resolve(process.cwd(), 'public', 'timelapses', `${projectId}.mp4`);
-        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-
+        const outputDir = path.dirname(outputPath);
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+      
+        if (fs.existsSync(outputPath)) {
+            console.log(`[Timelapse] Deleting existing video file: ${outputPath}`);
+            fs.unlinkSync(outputPath);
+        }
+        console.log('[Timelapse] Compiling frames into video with FFmpeg...');
         // FFmpeg se video banayein
-        ffmpeg(path.join(tempFramesDir, 'frame-%05d.png'))
-            .inputFPS(10) // 10 frames per second
+        ffmpeg(path.join(tempFramesDir, 'frame-%06d.png'))
+            .inputFPS(25) // 25 frames per second
+            .outputOptions('-c:v libx264') // Video codec
+            .outputOptions('-pix_fmt yuv420p') // Pixel format for compatibility
             .output(outputPath)
             .on('end', () => {
+                console.log('[Timelapse] Video generation finished.');
                 fs.rmSync(tempFramesDir, { recursive: true, force: true }); // Temp frames delete karein
-                res.status(200).json({ videoUrl: `/timelapses/${projectId}.mp4` });
+
+                const videoUrl = `/timelapses/${projectId}.mp4`;
+                res.status(200).json(new ApiResponse(200, { videoUrl }, "Timelapse generated successfully."));
             })
             .on('error', (err) => {
-                console.error("FFmpeg error:", err);
-                next(new ApiError(500, "Failed to generate video."));
+                console.error("[Timelapse] FFmpeg error:", err);
+                // Temp frames delete karein, bhale hi error aaye
+                if (fs.existsSync(tempFramesDir)) {
+                    fs.rmSync(tempFramesDir, { recursive: true, force: true });
+                }
+                return next(new ApiError(500, "Failed to generate video due to an FFmpeg error."));
             })
             .run();
 
