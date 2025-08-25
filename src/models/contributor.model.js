@@ -27,7 +27,7 @@ const ContributionSchema = new Schema({
     // --- EMBEDDING ---
     // Yahan hum poora stroke ka array save karenge
     // Yeh paintPixelSchema ki 'strokePath' aur contributionSchema ke 'grouping' ko milata hai
-    strokes: [StrokeSchema],
+    strokes: [StrokeSchema], 
 
     // Future ke liye
     upvotes: { type: Number, default: 0 },

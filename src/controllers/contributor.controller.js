@@ -4,6 +4,7 @@ import { createCanvas } from 'canvas';
 import fs from 'fs';
 import path from 'path';
 import Project from "../models/project.model.js";
+import drawingLogModel from '../models/drawingLog.model.js';
 
 const generateThumbnail = async (strokes) => {
     const THUMB_SIZE = 100; // Thumbnail ka size (100x100 pixels)
@@ -133,45 +134,59 @@ export const createContribution = async (req, res, next) => {
     }
 };
 
-// 2. Project ki Tamam Contributions Load Karne ke liye
 export const getProjectContributions = async (req, res, next) => {
     try {
         const { projectId } = req.params;
 
-        // Step 1: Frontend se 'sortBy' query parameter hasil karein.
-        // Agar nahi milta, to default 'newest' set karein.
-        const { sortBy = 'newest' } = req.query;
+        // --- STEP 1: Tamam Query Parameters ko Log Karein ---
+        console.log("Received Query Parameters:", req.query);
 
-        // Step 2: Mongoose ke liye sort options ka object banayein.
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        const { sortBy = 'newest', userId } = req.query;
+
+        // --- STEP 2: Filter Object ko Banayein aur Log Karein ---
+        // Ek base filter object banayein jo hamesha project ko filter karega
+        const filter = { projectId: projectId };
+
+        // Agar `userId` query parameter mojood hai aur khali nahi hai,
+        // to usay filter mein shamil karein.
+        if (userId && userId !== 'undefined' && userId !== 'null') {
+            filter.userId = userId;
+            console.log(`Filtering by userId: ${userId}`);
+        } else {
+            console.log("No userId provided, fetching for all users.");
+        }
+
+        console.log("Final Mongoose Filter Object:", filter);
+
+        // --- STEP 3: Sorting Logic (waisi hi rahegi) ---
         let sortOptions = {};
-
-        // Step 3: 'sortBy' ki value ke hisab se sort options set karein.
         switch (sortBy) {
-            case 'most-upvoted':
-                sortOptions = { upvotes: -1 }; // -1 for descending order (zyada se kam)
-                break;
-            case 'most-downvoted':
-                sortOptions = { downvotes: -1 };
-                break;
-            case 'oldest':
-                sortOptions = { createdAt: 1 }; // 1 for ascending order (kam se zyada)
-                break;
-            case 'newest':
-            default:
-                sortOptions = { createdAt: -1 }; // Default sorting
-                break;
+            case 'most-upvoted': sortOptions = { upvotes: -1 }; break;
+            case 'most-downvoted': sortOptions = { downvotes: -1 }; break;
+            case 'oldest': sortOptions = { createdAt: 1 }; break;
+            case 'newest': default: sortOptions = { createdAt: -1 }; break;
         }
 
-        // Step 4: Database query mein .sort() method ka istemal karein.
-        const contributions = await Contribution.find({ projectId })
-            .populate('userId', 'fullName email') // populate waisa hi rahega
-            .sort(sortOptions); // Yahan sorting apply hogi
+        // --- STEP 4: Database Query ---
+        const contributions = await Contribution.find(filter)
+            .populate('userId', 'fullName email')
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(limit);
 
-        if (!contributions) {
-            return res.status(200).json(new ApiResponse(200, [], "No contributions found."));
-        }
+        const totalContributions = await Contribution.countDocuments(filter);
 
-        res.status(200).json(new ApiResponse(200, contributions, "Contributions fetched successfully."));
+        console.log(`Found ${contributions.length} contributions out of ${totalContributions} total.`);
+
+        res.status(200).json(new ApiResponse(200, {
+            contributions,
+            currentPage: page,
+            totalPages: Math.ceil(totalContributions / limit),
+            totalContributions
+        }, "Contributions fetched successfully."));
 
     } catch (err) {
         next(err);
@@ -286,6 +301,36 @@ export const batchCreateContributions = async (req, res, next) => {
 
         // Mongoose `insertMany` ka istemal karein. Yeh bohat teiz hai.
         const savedContributions = await Contribution.insertMany(contributions);
+
+        const logsToSave = [];
+
+        // Har nayi contribution ke har stroke ke liye ek log entry banayein
+        contributions.forEach(contrib => {
+            // Yaqeeni banayein ke `strokes` array mojood hai
+            if (contrib && Array.isArray(contrib.strokes)) {
+                contrib.strokes.forEach(stroke => {
+                    // Yaqeeni banayein ke `stroke` object null nahi hai
+                    if (stroke) {
+                        logsToSave.push({
+                            projectId: projectId,
+                            userId: contrib.userId,
+                            stroke: stroke // Poora stroke object
+                        });
+                    }
+                });
+            }
+        });
+
+        // Agar save karne ke liye logs hain, to unhe database mein daalein
+        if (logsToSave.length > 0) {
+            // `insertMany` ko call karein lekin `await` na karein.
+            // Yeh ek "fire-and-forget" operation hai. Hum user ko response dene ke liye iska intezar nahi karenge.
+            drawingLogModel.insertMany(logsToSave).catch(err => {
+                // Agar logging fail ho, to sirf server par error dikhayein.
+                // User ke experience par iska koi asar nahi parna chahiye.
+                console.error("CRITICAL: Failed to save drawing logs to database.", err);
+            });
+        }
 
         // --- Stats Update (Optimized) ---
         const project = await Project.findById(projectId);
