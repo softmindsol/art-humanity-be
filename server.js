@@ -20,8 +20,7 @@ const io = new Server(httpServer, {
 
 // (6) Apni tamam socket logic ko alag function mein initialize karein
 initializeSocketIO(io);
-
-// (7) Ab database connect karein aur app.listen() ke bajaye httpServer.listen() call karein
+export { io }; // (7) Ab database connect karein aur app.listen() ke bajaye httpServer.listen() call karein
 connectDB()
     .then(() => {
         httpServer.listen(PORT, () => {

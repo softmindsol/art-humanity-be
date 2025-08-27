@@ -1,3 +1,6 @@
+import { io } from "../../server.js";
+import { User } from "../models/auth.model.js";
+import Notification from "../models/notification.model.js";
 import Project from "../models/project.model.js";
 import { ApiError, ApiResponse } from "../utils/api.utils.js";
 
@@ -94,39 +97,6 @@ export const getProjectById = async (req, res, next) => {
     }
 };
 
-export const joinProject = async (req, res, next) => {
-    try {
-        const { projectId } = req.params;
-        const { userId } = req.body; // Auth middleware se user ki ID hasil karein
-
-        if (!userId) {
-            throw new ApiError(401, "Unauthorized. Please log in to join the project.");
-        }
-
-        // $addToSet operator ka istemal karein.
-        // Yeh userId ko 'contributors' array mein sirf tab add karega agar woh pehle se mojood na ho.
-        // Yeh race conditions se bachata hai aur code ko saaf rakhta hai.
-        const updatedProject = await Project.findByIdAndUpdate(
-            projectId,
-            { $addToSet: { contributors: userId } },
-            { new: true } // Yeh option zaroori hai taake Mongoose updated document wapas bheje
-        );
-
-        if (!updatedProject) {
-            throw new ApiError(404, "Project not found.");
-        }
-
-        // Project ke stats mein contributor count ko bhi update karein.
-
-        updatedProject.stats.contributorCount = updatedProject.contributors.length;
-        await updatedProject.save();
-
-        res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined the project as a contributor."));
-
-    } catch (err) {
-        next(err);
-    }
-};
 
 
 // --- ADD THIS NEW CONTROLLER FUNCTION ---
@@ -181,4 +151,146 @@ export const getGalleryProjects = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
+};
+
+export const getProjectContributors = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        const project = await Project.findById(projectId)
+            .populate('contributors', 'fullName email avatar')
+            .select('contributors ownerId'); // <-- Hum 'ownerId' ko bhi select karenge
+
+        if (!project) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+        // --- YEH HAI ASAL FIX ---
+        // 'contributors' array ko filter karein taake ismein owner shamil na ho
+        const contributorsWithoutOwner = project.contributors.filter(contributor => {
+            // Har contributor ki ID ko project ki ownerId se compare karein
+            // .equals() method Mongoose ObjectIDs ko sahi se compare karta hai
+            return !contributor._id.equals(project.ownerId);
+
+            // Agar aap IDs ko string mein convert karke compare karna chahte hain (yeh bhi theek hai):
+            // return contributor._id.toString() !== project.ownerId.toString();
+        });
+
+        // Response mein filtered list bhejein
+        res.status(200).json(new ApiResponse(
+            200,
+            contributorsWithoutOwner, // <-- Filtered array
+            "Contributors fetched successfully."
+        ));
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+export const joinProject = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { userId } = req.body;
+
+        if (!userId) {
+            throw new ApiError(400, "User ID is required to join the project.");
+        }
+
+        const updatedProject = await Project.findByIdAndUpdate(
+            projectId,
+            { $addToSet: { contributors: userId } },
+            { new: true }
+        ).populate('ownerId contributors');
+
+        if (!updatedProject) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+        const joiningUser = await User.findById(userId).lean();
+        if (!joiningUser) {
+            return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
+        }
+
+        // --- YAHAN SE NOTIFICATION LOGIC SHURU HOTI HAI (FIXED) ---
+
+        console.log("--- Starting Notification Logic ---");
+        console.log("Project Owner ID:", updatedProject.ownerId._id.toString());
+        console.log("Joining User ID:", joiningUser._id.toString());
+        console.log("All Contributor IDs in Project:", updatedProject.contributors.map(c => c._id.toString()));
+
+        // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
+        const recipientSet = new Set();
+
+        // (2) Owner ko add karein
+        recipientSet.add(updatedProject.ownerId._id.toString());
+
+        // (3) Tamam contributors ko add karein
+        updatedProject.contributors.forEach(c => recipientSet.add(c._id.toString()));
+
+        // (4) Ab is Set mein se join karne wale user ko nikaal dein
+        recipientSet.delete(joiningUser._id.toString());
+
+        // (5) Set ko wapas ek array mein tabdeel kar dein
+        const finalRecipients = [...recipientSet];
+
+        console.log("Final Recipients for Notification:", finalRecipients);
+        // --- NOTIFICATION LOGIC KHATM ---
+
+        const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProject.title}".`;
+
+        // Agar recipients hain, tab hi notifications banayein
+        if (finalRecipients.length > 0) {
+            const notificationsToCreate = finalRecipients.map(id => ({
+                recipient: id,
+                sender: joiningUser._id,
+                type: 'NEW_CONTRIBUTOR',
+                message: notificationMessage,
+                project: updatedProject._id
+            }));
+
+            const newNotifications = await Notification.insertMany(notificationsToCreate);
+
+            newNotifications.forEach(notification => {
+                io.to(notification.recipient.toString()).emit('new_notification', notification);
+            });
+            console.log(`Sent ${newNotifications.length} real-time notifications.`);
+        } else {
+            console.log("No recipients to notify.");
+        }
+
+        res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project."));
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const removeContributor = async (req, res, next) => {
+    try {
+        const { projectId, userIdToRemove,userId } = req.body;
+        const removedBy = userId; // Admin/Owner
+
+        const project = await Project.findByIdAndUpdate(
+            projectId,
+            { $pull: { contributors: userIdToRemove } },
+            { new: true }
+        );
+
+        if (!project) throw new ApiError(404, "Project not found.");
+
+        // Contributor ko notification bhejein
+        const notification = await Notification.create({
+            recipient: userIdToRemove,
+            sender: removedBy._id,
+            type: 'CONTRIBUTOR_REMOVED',
+            message: `You have been removed from the project "${project.title}" by the owner.`,
+            project: projectId
+        });
+
+        io.to(userIdToRemove.toString()).emit('new_notification', notification);
+
+        res.status(200).json(new ApiResponse(200, { projectId, userIdToRemove }, "Contributor removed successfully."));
+    } catch (err) { next(err); }
 };

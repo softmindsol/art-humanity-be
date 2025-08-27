@@ -3,6 +3,15 @@ const initializeSocketIO = (io) => {
     return io.on("connection", (socket) => {
         console.log(`✅ User connected: ${socket.id}`);
 
+        // --- NAYI LOGIC ---
+        // Jaise hi user connect ho, uski userId hasil karein (agar token se mumkin ho)
+        // aur usay uski apni ID ke naam wale room mein daal dein.
+        const userId = socket.handshake.query.userId; // Farz karein frontend se bhej rahe hain
+        if (userId) {
+            socket.join(userId);
+            console.log(`User ${socket.id} joined their private room: ${userId}`);
+        }
+
         // --- MOJOODA EVENTS (Waisay hi rahenge) ---
         socket.on('join_project', (projectId) => {
             socket.join(projectId);
@@ -38,5 +47,6 @@ const initializeSocketIO = (io) => {
         });
     });
 };
+
 
 export { initializeSocketIO };
