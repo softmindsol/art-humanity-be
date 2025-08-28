@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 import Token from '../models/token.model.js';
 import nodemailer from 'nodemailer';
 import { JWT_ACCESS_TOKEN_SECRET_KEY, CLIENT_URL } from '../config/env.config.js';
-import { ApiError } from '../utils/api.utils.js'
+import { ApiError, ApiResponse } from '../utils/api.utils.js'
 import admin from '../config/firebase.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 const SALT_ROUNDS = 10;
@@ -114,7 +114,7 @@ export const userController = {
                     JWT_ACCESS_TOKEN_SECRET_KEY,
                     { expiresIn: '24h' }
                 );
-
+ 
                 user.verificationToken = verificationToken;
                 await user.save();
 
@@ -372,6 +372,21 @@ export const userController = {
             message: "Password reset successfully"
         });
 
+    },
+
+     getAllRegisteredUsers : async (req, res, next) => {
+        try {
+            // Hum sirf zaroori data wapas bhejenge, password nahi.
+            const users = await User.find({ role: { $ne: 'admin' } })
+                .select('_id fullName email avatar');
+            res.status(200).json(new ApiResponse(
+                200,
+                users,
+                "All registered users fetched successfully."
+            ));
+        } catch (err) {
+            next(err);
+        }
     },
 
 

@@ -10,7 +10,7 @@ const NotificationSchema = new Schema({
     // Notification ka type taake frontend par alag icon dikha sakein
     type: {
         type: String,
-        enum: ['NEW_CONTRIBUTOR', 'CONTRIBUTOR_REMOVED', 'PROJECT_COMPLETED', 'VOTE_THRESHOLD'],
+        enum: ['NEW_CONTRIBUTOR', 'ADDED_TO_PROJECT','CONTRIBUTOR_REMOVED', 'PROJECT_COMPLETED', 'VOTE_THRESHOLD'],
         required: true
     },
 

@@ -267,6 +267,78 @@ export const joinProject = async (req, res, next) => {
     }
 };
 
+export const addContributorsToProject = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { userIdsToAdd,ownerId } = req.body; // Frontend se user IDs ka array aayega
+        
+
+        if (!userIdsToAdd || !Array.isArray(userIdsToAdd) || userIdsToAdd.length === 0) {
+            throw new ApiError(400, "User IDs array is required.");
+        }
+
+        const project = await Project.findById(projectId);
+        if (!project) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+
+        // Purane contributors ki list nikaal lein (notification ke liye)
+        const oldContributors = project.contributors.map(id => id.toString());
+
+        // Naye users ko project mein add karein ($addToSet duplicates ko rokta hai)
+        await Project.findByIdAndUpdate(projectId, {
+            $addToSet: { contributors: { $each: userIdsToAdd } }
+        });
+
+        // --- NOTIFICATION LOGIC ---
+        const notificationsToCreate = [];
+
+        // Notification 1: Naye add hone wale users ko bhejein
+        userIdsToAdd.forEach(userId => {
+            notificationsToCreate.push({
+                recipient: userId,
+                sender: ownerId,
+                type: 'ADDED_TO_PROJECT', // Naya type
+                message: `You have been added to the project "${project.title}" by Admin.`,
+                project: projectId
+            });
+        });
+
+        // Notification 2: Purane contributors ko bhejein
+        const newUsers = await User.find({ _id: { $in: userIdsToAdd } }).select('fullName');
+        const newUsersNames = newUsers.map(u => u.fullName).join(', ');
+
+        oldContributors.forEach(userId => {
+            // Sirf purane users ko notify karein, naye ko nahi
+            if (!userIdsToAdd.includes(userId)) {
+                notificationsToCreate.push({
+                    recipient: userId,
+                    sender: ownerId,
+                    type: 'NEW_CONTRIBUTOR',
+                    message: `${newUsersNames} has been added to the project "${project.title}".`,
+                    project: projectId
+                });
+            }
+        });
+
+        // Tamam notifications ko database mein daalein aur socket par emit karein
+        if (notificationsToCreate.length > 0) {
+            const createdNotifications = await Notification.insertMany(notificationsToCreate);
+            createdNotifications.forEach(notification => {
+                io.to(notification.recipient.toString()).emit('new_notification', notification);
+            });
+        }
+
+        // Kamyabi ka response
+        const updatedProject = await Project.findById(projectId).populate('contributors', 'fullName email avatar');
+        
+        res.status(200).json(new ApiResponse(200, updatedProject, "Contributors added successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
 export const removeContributor = async (req, res, next) => {
     try {
         const { projectId, userIdToRemove,userId } = req.body;

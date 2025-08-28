@@ -8,7 +8,6 @@ export const projectOwnerMiddleware = async (req, res, next) => {
         const { projectId,userId } = req.body
         const loggedInUserId = userId;
 
-        console.log("userId:", userId)
         if (!projectId) {
             throw new ApiError(400, "Project ID is required.");
         }
