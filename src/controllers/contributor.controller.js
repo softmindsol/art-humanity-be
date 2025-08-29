@@ -176,26 +176,34 @@ export const voteOnContribution = async (req, res, next) => {
         }
 
         const updatedContribution = await contribution.save();
-        // --- NAYI AUTOMATIC DELETION LOGIC ---
-        const { upvotes, downvotes, _id } = updatedContribution;
-        const totalVotes = upvotes + downvotes;
-        const DELETION_THRESHOLD_PERCENT = 0.5; // 50%
-        const MINIMUM_VOTES_FOR_DELETION = 5;   // Kam se kam 5 votes hone chahiye delete karne ke liye
 
-        // Condition: Agar total votes minimum hadd se zyada hain AUR downvotes 50% se zyada hain
-        if (totalVotes >= MINIMUM_VOTES_FOR_DELETION && (downvotes / totalVotes) > DELETION_THRESHOLD_PERCENT) {
+        // --- YAHAN PAR NAYI DELETION LOGIC HAI ---
+        const { downvotes, _id, projectId } = updatedContribution;
 
-            console.log(`[Moderation] Auto-deleting contribution ${_id} due to high downvotes.`);
+        // Step 1: Is contribution ke project ke total contributors ki tadaad hasil karein.
+        const project = await Project.findById(projectId).select('contributors');
+        if (!project) {
+            // Agar project nahi milta to aage na barhein
+            return res.status(200).json(new ApiResponse(200, updatedContribution, "Vote registered successfully."));
+        }
+
+        const totalProjectContributors = project.contributors.length;
+
+        // Step 2: Client ki di hui condition ko check karein.
+        // Yaqeeni banayein ke kam se kam 1 contributor ho taake zero se divide na ho.
+        if (totalProjectContributors > 0 && (downvotes / totalProjectContributors) > 0.5) {
+
+            console.log(`[Moderation] Auto-deleting contribution ${_id}. Downvotes (${downvotes}) exceeded 50% of total contributors (${totalProjectContributors}).`);
             await Contribution.findByIdAndDelete(_id);
 
-            // Frontend ko ek khaas response bhejein taake usay pata chal jaye ke contribution delete ho gaya hai
+            // Frontend ko batayein ke contribution delete ho gaya hai
             return res.status(200).json(new ApiResponse(200,
                 { wasDeleted: true, contributionId: _id },
-                "Contribution auto-deleted due to high downvotes."
+                "Contribution auto-deleted due to high downvotes from project contributors."
             ));
         }
 
-        // Agar delete nahi hua, to normal updated contribution wapas bhejein
+        // Agar delete nahi hua, to normal response bhejein
         res.status(200).json(new ApiResponse(200, updatedContribution, "Vote registered successfully."));
 
     } catch (err) {

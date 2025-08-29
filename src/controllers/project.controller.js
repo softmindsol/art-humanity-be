@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { io } from "../../server.js";
 import { User } from "../models/auth.model.js";
 import Notification from "../models/notification.model.js";
@@ -66,15 +67,56 @@ export const createProject = async (req, res, next) => {
 };
 
 // Get all active projects
+
 export const getActiveProjects = async (req, res, next) => {
     try {
-        const projects = await Project.find({ isClosed: false })
-            .select("-contributors") // optional: exclude large fields
-            .sort({ createdAt: -1 });
+        // --- Step 1: Frontend se anay walay तमाम Query Parameters ko hasil karein ---
+        const page = parseInt(req.query.page) || 1;       // Page number, default 1
+        const limit = parseInt(req.query.limit) || 9;      // Kitne items per page, default 9
+        const status = req.query.status;                 // 'active' ya 'paused'
+        const searchQuery = req.query.search;            // User ka search text
 
-        res
-            .status(200)
-            .json(new ApiResponse(200, projects, "Fetched active projects"));
+        console.log("page:", page, "limit:", limit, "status:", status, "searchQuery:", searchQuery)
+        // --- Step 2: Mongoose ke liye ek dynamic 'filter' object banayein ---
+        const filter = {
+            isClosed: false // Hum gallery wale projects (isClosed: true) nahi chahte
+        };
+
+        // Agar frontend se status ka filter aaya hai
+        if (status === 'active') {
+            filter.isPaused = false;
+        } else if (status === 'paused') {
+            filter.isPaused = true;
+        }
+        // Agar 'status' undefined ya 'all' hai, to hum is filter ko nahi lagayenge
+
+        // Agar frontend se search query aayi hai
+        if (searchQuery) {
+            // Hum 'title' field par ek case-insensitive search lagayenge
+            filter.title = { $regex: searchQuery, $options: 'i' };
+        }
+
+        // --- Step 3: Database se data fetch karein (Pagination ke saath) ---
+        const skip = (page - 1) * limit;
+
+        const projects = await Project.find(filter)
+            .sort({ createdAt: -1 }) // Hamesha naye projects pehle dikhayein
+            .skip(skip)
+            .limit(limit)
+            .select("-contributors"); // List page par contributors ki zaroorat nahi
+
+        // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
+        // Yeh pagination ke liye bohat zaroori hai
+        const totalProjects = await Project.countDocuments(filter);
+
+        // --- Step 5: Frontend ke liye ek behtareen response banayein ---
+        res.status(200).json(new ApiResponse(200, {
+            projects,
+            currentPage: page,
+            totalPages: Math.ceil(totalProjects / limit),
+            totalProjects: totalProjects
+        }, "Fetched active projects successfully"));
+
     } catch (err) {
         next(err);
     }
@@ -197,6 +239,30 @@ export const joinProject = async (req, res, next) => {
         if (!userId) {
             throw new ApiError(400, "User ID is required to join the project.");
         }
+   
+        const user = await User.findById(userId).select('role');
+        if (!user) {
+            throw new ApiError(404, "User not found.");
+        }
+        if (user.role !== 'admin') {
+
+            // --- YEH HAI ASAL FIX ---
+            // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
+            const userObjectId = new mongoose.Types.ObjectId(userId);
+            // Step 2: Ab query mein is converted ObjectId ko istemal karein
+            const projectsCount = await Project.countDocuments({
+                contributors: userObjectId, // <-- Converted ObjectId istemal karein
+                isClosed: false,
+                isPaused: false            });
+
+            console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
+
+            const MAX_PROJECTS_LIMIT = 10;
+
+            if (projectsCount >= MAX_PROJECTS_LIMIT) {
+                throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
+            }
+        }
 
         const updatedProject = await Project.findByIdAndUpdate(
             projectId,
@@ -213,12 +279,6 @@ export const joinProject = async (req, res, next) => {
             return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
         }
 
-        // --- YAHAN SE NOTIFICATION LOGIC SHURU HOTI HAI (FIXED) ---
-
-        console.log("--- Starting Notification Logic ---");
-        console.log("Project Owner ID:", updatedProject.ownerId._id.toString());
-        console.log("Joining User ID:", joiningUser._id.toString());
-        console.log("All Contributor IDs in Project:", updatedProject.contributors.map(c => c._id.toString()));
 
         // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
         const recipientSet = new Set();
@@ -332,13 +392,14 @@ export const addContributorsToProject = async (req, res, next) => {
 
         // Kamyabi ka response
         const updatedProject = await Project.findById(projectId).populate('contributors', 'fullName email avatar');
-        
+
         res.status(200).json(new ApiResponse(200, updatedProject, "Contributors added successfully."));
 
     } catch (err) {
         next(err);
     }
 };
+
 export const removeContributor = async (req, res, next) => {
     try {
         const { projectId, userIdToRemove,userId } = req.body;
