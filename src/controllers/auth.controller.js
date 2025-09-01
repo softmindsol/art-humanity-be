@@ -81,21 +81,32 @@ export const userController = {
     verifyEmail: async (req, res) => {
         try {
             const { token } = req.body;
+            if (!token) return res.status(400).json({ success: false, message: "Missing token" });
 
             const decoded = jwt.verify(token, JWT_ACCESS_TOKEN_SECRET_KEY);
-            const user = await User.findOne({ email: decoded.email, verificationToken: token });
+
+            // New flow: token may include { id, newEmail }
+            // Old flow: token may include { email }
+            let user = null;
+
+            if (decoded.id) {
+                user = await User.findOne({ _id: decoded.id, verificationToken: token });
+            } else if (decoded.email) {
+                user = await User.findOne({ email: decoded.email, verificationToken: token });
+            }
 
             if (!user) {
-                return res.status(400).json({ success: false, message: 'Invalid or expired verification token' });
+                return res.status(400).json({ success: false, message: "Invalid or expired verification token" });
             }
 
             user.isVerified = true;
             user.verificationToken = null;
             await user.save();
 
-            res.status(200).json({ success: 'success', message: 'Email verified successfully. You can now login.' });
+            return res.status(200).json({ success: true, message: "Email verified successfully. You can now login." });
         } catch (error) {
-            res.status(500).json({ success: 'error', message: 'Server error', error: error.message });
+            console.error(error);
+            return res.status(500).json({ success: false, message: "Server error", error: error.message });
         }
     },
 
@@ -279,7 +290,7 @@ export const userController = {
 
     updateUser: async (req, res) => {
         try {
-            const { fullName, password } = req.body;
+            const { fullName, password, newEmail } = req.body;
             const { id } = req.params;
 
             // Build update object
@@ -292,6 +303,11 @@ export const userController = {
                 updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
             }
 
+            // 3) Check duplicate email (exclude the same user)
+            const exists = await User.findOne({ email: newEmail, _id: { $ne: id } }).select("_id");
+            if (exists) return res.status(409).json({ success: false, message: "Email already in use" });
+
+
             if (req.file?.path) {
                 const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
                 if (cloudinaryResponse?.url) {
@@ -299,6 +315,7 @@ export const userController = {
                     //  deleteLocalFile(req.file.path);
                 }
             }
+
 
             const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
                 .select("-password -verificationToken"); // exclude sensitive fields
@@ -311,6 +328,67 @@ export const userController = {
         } catch (err) {
             console.error("Update user error:", err);
             res.status(500).json({ success: false, message: "Server error", error: err.message });
+        }
+    },
+
+    requestEmailChange: async (req, res) => {
+        try {
+            const { userId, newEmail, currentPassword } = req.body;
+            if (!userId || !newEmail || !currentPassword) {
+                return res.status(400).json({ success: false, message: "userId, newEmail aur currentPassword required hain" });
+            }
+
+            // 1) User load
+            const user = await User.findById(userId);
+            if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+            // 2) Password verify (agar passwordless/Firebase account ho to error)
+            if (!user.password) {
+                return res.status(400).json({ success: false, message: "Password login is not enabled for this account" });
+            }
+            const ok = await bcrypt.compare(currentPassword, user.password);
+            if (!ok) return res.status(401).json({ success: false, message: "Invalid current password" });
+
+            // 3) Duplicate email check (kisi aur ka na ho)
+            const exists = await User.findOne({ email: newEmail.toLowerCase().trim(), _id: { $ne: userId } }).select("_id");
+            if (exists) return res.status(409).json({ success: false, message: "Email already in use" });
+
+            // 4) Token banao (id + newEmail store), 24h expiry
+            const verificationToken = jwt.sign(
+                { id: user._id, newEmail: newEmail.toLowerCase().trim() },
+                JWT_ACCESS_TOKEN_SECRET_KEY,
+                { expiresIn: "24h" }
+            );
+
+            // 5) Email turant change + un-verify + token save
+            user.email = newEmail.toLowerCase().trim();
+            user.isVerified = false;                 // <<<<<<<<<< as per requirement
+            user.verificationToken = verificationToken;
+            await user.save();
+
+            // 6) New email par verification bhejo
+            const baseUrl = req.headers.origin || CLIENT_URL; // fallback if origin missing
+            const verificationLink = `${baseUrl}/verify-email/${verificationToken}`;
+
+            await transporter.sendMail({
+                from: process.env.EMAIL,
+                to: newEmail,
+                subject: "Verify your new email",
+                html: `
+        <p>You requested to change the email on your account.</p>
+        <p>Please verify this email to finish the change:</p>
+        <p><a href="${verificationLink}">Verify New Email</a></p>
+        <p>This link expires in 24 hours.</p>
+      `,
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: "Email change requested. Verification link sent to the new email."
+            });
+        } catch (err) {
+            console.error("requestEmailChange error:", err);
+            return res.status(500).json({ success: false, message: "Server error", error: err.message });
         }
     },
 

@@ -76,7 +76,6 @@ export const getActiveProjects = async (req, res, next) => {
         const status = req.query.status;                 // 'active' ya 'paused'
         const searchQuery = req.query.search;            // User ka search text
 
-        console.log("page:", page, "limit:", limit, "status:", status, "searchQuery:", searchQuery)
         // --- Step 2: Mongoose ke liye ek dynamic 'filter' object banayein ---
         const filter = {
             isClosed: false // Hum gallery wale projects (isClosed: true) nahi chahte
