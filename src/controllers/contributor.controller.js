@@ -235,10 +235,27 @@ export const batchCreateContributions = async (req, res, next) => {
     try {
         // Frontend se poora contribution objects ka array aayega
         const { projectId, contributions } = req.body;
-        console.log("Received contributions on backend:", JSON.stringify(contributions, null, 2));
 
         if (!projectId || !contributions || !Array.isArray(contributions) || contributions.length === 0) {
             throw new ApiError(400, "Project ID and a non-empty contributions array are required.");
+        }
+
+
+        // --- YEH NAYA AUR SAHI LOGIC HAI ---
+        // Step 1: Request se userId hasil karein (batch ki pehli contribution se)
+        const userId = contributions[0].userId;
+
+        // Step 2: Database mein is user ki is project ke liye mojooda contributions gino.
+        const contributionCount = await Contribution.countDocuments({
+            projectId: projectId,
+            userId: userId
+        });
+
+        const MAX_CONTRIBUTIONS_PER_PROJECT = 10;
+
+        // Step 3: Agar user apni limit tak pohnch chuka hai, to error bhejein.
+        if (contributionCount >= MAX_CONTRIBUTIONS_PER_PROJECT) {
+            throw new ApiError(403, `You have reached the maximum of ${MAX_CONTRIBUTIONS_PER_PROJECT} contributions for this project.`);
         }
 
         for (const contrib of contributions) {

@@ -243,25 +243,25 @@ export const joinProject = async (req, res, next) => {
         if (!user) {
             throw new ApiError(404, "User not found.");
         }
-        if (user.role !== 'admin') {
+        // if (user.role !== 'admin') {
 
-            // --- YEH HAI ASAL FIX ---
-            // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
-            const userObjectId = new mongoose.Types.ObjectId(userId);
-            // Step 2: Ab query mein is converted ObjectId ko istemal karein
-            const projectsCount = await Project.countDocuments({
-                contributors: userObjectId, // <-- Converted ObjectId istemal karein
-                isClosed: false,
-                isPaused: false            });
+        //     // --- YEH HAI ASAL FIX ---
+        //     // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
+        //     const userObjectId = new mongoose.Types.ObjectId(userId);
+        //     // Step 2: Ab query mein is converted ObjectId ko istemal karein
+        //     const projectsCount = await Project.countDocuments({
+        //         contributors: userObjectId, // <-- Converted ObjectId istemal karein
+        //         isClosed: false,
+        //         isPaused: false            });
 
-            console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
+        //     console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
 
-            const MAX_PROJECTS_LIMIT = 10;
+        //     const MAX_PROJECTS_LIMIT = 10;
 
-            if (projectsCount >= MAX_PROJECTS_LIMIT) {
-                throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
-            }
-        }
+        //     if (projectsCount >= MAX_PROJECTS_LIMIT) {
+        //         throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
+        //     }
+        // }
 
         const updatedProject = await Project.findByIdAndUpdate(
             projectId,
