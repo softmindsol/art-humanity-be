@@ -25,6 +25,12 @@ export const createProject = async (req, res, next) => {
         if (!userId) throw new ApiError(401, "Unauthorized user");
         if (!title) throw new ApiError(400, "Title is required");
 
+        // Check for duplicate canvasId
+        const existingProject = await Project.findOne({ canvasId });
+        if (existingProject) {
+            throw new ApiError(400, "A project with this Title already exists.");
+        }
+
         // Build base for public URLs
         const publicBase = `${req.protocol}://${req.get("host")}/public/uploads/projects`;
 
