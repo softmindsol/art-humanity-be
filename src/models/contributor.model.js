@@ -8,7 +8,7 @@ const StrokeSchema = new Schema({
     strokePath: { type: Schema.Types.Mixed, required: true },
     brushSize: { type: Number, required: true },
     color: { type: Schema.Types.Mixed, required: true },
-    mode: { type: String, enum: ['brush', 'eraser'], required: true }
+    mode: { type: String, enum: ['brush', 'eraser',"line"], required: true }
 }, { _id: false }); // Strokes ki alag ID ki zaroorat nahi
 
 // Yeh hamara main model hoga
