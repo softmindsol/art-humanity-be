@@ -252,11 +252,23 @@ export const batchCreateContributions = async (req, res, next) => {
         });
 
         console.log("contributionCount:", contributionCount, userId)
+        // Step 2: Is naye batch ka size hasil karo
+        const batchSize = contributions.length;
         const MAX_CONTRIBUTIONS_PER_PROJECT = 10;
 
         // Step 3: Agar user apni limit tak pohnch chuka hai, to error bhejein.
-        if (contributionCount >= MAX_CONTRIBUTIONS_PER_PROJECT) {
-            throw new ApiError(403, `You have reached the maximum of ${MAX_CONTRIBUTIONS_PER_PROJECT} contributions for this project.`);
+        // Step 3: Naya check: Kya mojooda count + is batch ka size limit se barh jayega?
+        if ((contributionCount + batchSize) > MAX_CONTRIBUTIONS_PER_PROJECT) {
+            // User ko ek behtar error message do
+            const slotsAvailable = MAX_CONTRIBUTIONS_PER_PROJECT - contributionCount;
+
+            // Agar koi slot baaki nahi, to alag message
+            if (slotsAvailable <= 0) {
+                throw new ApiError(403, `You have already reached the maximum of ${MAX_CONTRIBUTIONS_PER_PROJECT} contributions.`);
+            }
+
+            // Agar kuch slots baaki hain, to batao kitne
+            throw new ApiError(403, `This action would exceed your contribution limit. You only have ${slotsAvailable} contribution slots remaining.`);
         }
 
         for (const contrib of contributions) {
