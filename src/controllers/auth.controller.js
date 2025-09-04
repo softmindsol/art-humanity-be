@@ -34,6 +34,12 @@ export const userController = {
                 return res.status(400).json({ success: false, message: 'User with this email or username already exists' });
             }
 
+            // Check if fullName already exists
+            const existingFullNameUser = await User.findOne({ fullName: req.body.fullName });
+            if (existingFullNameUser) {
+                return res.status(400).json({ success: false, message: 'User with this full name already exists' });
+            }
+
             const hashedPassword = await bcrypt.hash(req.body.password, SALT_ROUNDS);
             const verificationToken = jwt.sign(
                 { email: req.body.email },

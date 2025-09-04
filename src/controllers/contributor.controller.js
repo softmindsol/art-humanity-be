@@ -251,6 +251,7 @@ export const batchCreateContributions = async (req, res, next) => {
             userId: userId
         });
 
+        console.log("contributionCount:", contributionCount)
         const MAX_CONTRIBUTIONS_PER_PROJECT = 10;
 
         // Step 3: Agar user apni limit tak pohnch chuka hai, to error bhejein.
@@ -310,7 +311,7 @@ export const batchCreateContributions = async (req, res, next) => {
                         return strokeSum;
                     }, 0);
                     return sum + pixelsInContrib;
-                }
+                } 
                 return sum;
             }, 0);
 
