@@ -251,7 +251,7 @@ export const batchCreateContributions = async (req, res, next) => {
             userId: userId
         });
 
-        console.log("contributionCount:", contributionCount)
+        console.log("contributionCount:", contributionCount, userId)
         const MAX_CONTRIBUTIONS_PER_PROJECT = 10;
 
         // Step 3: Agar user apni limit tak pohnch chuka hai, to error bhejein.
