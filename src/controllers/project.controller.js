@@ -4,6 +4,7 @@ import { User } from "../models/auth.model.js";
 import Notification from "../models/notification.model.js";
 import Project from "../models/project.model.js";
 import { ApiError, ApiResponse } from "../utils/api.utils.js";
+import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
 
 // Create a new project
 
@@ -431,4 +432,32 @@ export const removeContributor = async (req, res, next) => {
 
         res.status(200).json(new ApiResponse(200, { projectId, userIdToRemove }, "Contributor removed successfully."));
     } catch (err) { next(err); }
+};
+
+export const deleteProject = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+
+        // Step 1: Is project se judi hui tamam contributions ko delete karein
+        const deletionResult = await Contribution.deleteMany({ projectId: projectId });
+        console.log(`[Cleanup] Deleted ${deletionResult.deletedCount} contributions for project ${projectId}.`);
+
+        // Step 2: Ab asal project ko delete karein
+        const deletedProject = await Project.findByIdAndDelete(projectId);
+
+        // Agar project mila hi nahi
+        if (!deletedProject) {
+            throw new ApiError(404, "Project not found.");
+        }
+
+        // Kamyabi ka response bhejein
+        res.status(200).json(new ApiResponse(
+            200,
+            { projectId: deletedProject._id }, // Frontend ko ID wapas bhejein
+            "Project and all its contributions have been deleted successfully."
+        ));
+
+    } catch (err) {
+        next(err);
+    }
 };

@@ -1,5 +1,5 @@
 import express from "express";
-import { createProject, getActiveProjects, getProjectById, joinProject, updateProjectStatus, getGalleryProjects, removeContributor, getProjectContributors, addContributorsToProject } from "../controllers/project.controller.js";
+import { createProject, getActiveProjects, getProjectById, joinProject, updateProjectStatus, getGalleryProjects, removeContributor, getProjectContributors, addContributorsToProject, deleteProject } from "../controllers/project.controller.js";
 import { upload } from './../middlewares/multer.middleware.js';
 import { projectOwnerMiddleware } from "../middlewares/projectOwner.middleware.js";
 
@@ -25,5 +25,8 @@ router.route('/remove-contributor').patch(
 router.route("/:projectId/contributors").post(
     addContributorsToProject
 );
+
+router.delete("/:projectId", deleteProject); // <-- Yeh nayi line add karein
+
 
 export default router;
