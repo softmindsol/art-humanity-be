@@ -109,12 +109,12 @@ export const getActiveProjects = async (req, res, next) => {
             .sort({ createdAt: -1 }) // Hamesha naye projects pehle dikhayein
             .skip(skip)
             .limit(limit)
-            .select("-contributors"); // List page par contributors ki zaroorat nahi
+        // .select("-contributors"); // List page par contributors ki zaroorat nahi
 
         // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
         // Yeh pagination ke liye bohat zaroori hai
         const totalProjects = await Project.countDocuments(filter);
-
+        console.log("projects:", projects)
         // --- Step 5: Frontend ke liye ek behtareen response banayein ---
         res.status(200).json(new ApiResponse(200, {
             projects,
@@ -133,7 +133,7 @@ export const getProjectById = async (req, res, next) => {
     try {
         const { canvasId } = req.params;
         console.log(canvasId)
-        const project = await Project.findOne({canvasId});
+        const project = await Project.findOne({ canvasId });
 
         if (!project) {
             throw new ApiError(404, "Project not found");
@@ -245,7 +245,7 @@ export const joinProject = async (req, res, next) => {
         if (!userId) {
             throw new ApiError(400, "User ID is required to join the project.");
         }
-   
+
         const user = await User.findById(userId).select('role');
         if (!user) {
             throw new ApiError(404, "User not found.");
@@ -336,8 +336,8 @@ export const joinProject = async (req, res, next) => {
 export const addContributorsToProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;
-        const { userIdsToAdd,ownerId } = req.body; // Frontend se user IDs ka array aayega
-        
+        const { userIdsToAdd, ownerId } = req.body; // Frontend se user IDs ka array aayega
+
 
         if (!userIdsToAdd || !Array.isArray(userIdsToAdd) || userIdsToAdd.length === 0) {
             throw new ApiError(400, "User IDs array is required.");
@@ -408,7 +408,7 @@ export const addContributorsToProject = async (req, res, next) => {
 
 export const removeContributor = async (req, res, next) => {
     try {
-        const { projectId, userIdToRemove,userId } = req.body;
+        const { projectId, userIdToRemove, userId } = req.body;
         const removedBy = userId; // Admin/Owner
 
         const project = await Project.findByIdAndUpdate(
