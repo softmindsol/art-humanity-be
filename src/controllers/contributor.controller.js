@@ -4,6 +4,7 @@ import { ApiError, ApiResponse } from "../utils/api.utils.js";
 import Project from "../models/project.model.js";
 import drawingLogModel from '../models/drawingLog.model.js';
 import { generateThumbnail } from '../utils/generateThumbnail.utils.js';
+import { io } from '../../server.js';
 
 
 
@@ -212,24 +213,50 @@ export const voteOnContribution = async (req, res, next) => {
 }
 
 // Naya controller function add karein
+// export const deleteContribution = async (req, res, next) => {
+//     try {
+//         const { id: contributionId } = req.params;
+
+//         const deletedContribution = await Contribution.findByIdAndDelete(contributionId);
+
+//         if (!deletedContribution) {
+//             throw new ApiError(404, "Contribution not found.");
+//         }
+
+//         res.status(200).json(new ApiResponse(200,
+//             { contributionId: deletedContribution._id },
+//             "Contribution deleted successfully by admin."
+//         ));
+//     } catch (err) {
+//         next(err);
+//     }
+// };
+
 export const deleteContribution = async (req, res, next) => {
     try {
         const { id: contributionId } = req.params;
-
         const deletedContribution = await Contribution.findByIdAndDelete(contributionId);
 
         if (!deletedContribution) {
             throw new ApiError(404, "Contribution not found.");
         }
 
+        // --- YEH NAYA LOGIC HAI ---
+        // Tamam clients ko jo is project room mein hain, batayein ke yeh contribution delete ho gayi hai
+        io.to(deletedContribution.projectId.toString()).emit('contribution_deleted', {
+            contributionId: deletedContribution._id
+        });
+
         res.status(200).json(new ApiResponse(200,
             { contributionId: deletedContribution._id },
-            "Contribution deleted successfully by admin."
+            "Contribution deleted successfully."
         ));
     } catch (err) {
         next(err);
     }
 };
+
+
 
 export const batchCreateContributions = async (req, res, next) => {
     try {
@@ -251,7 +278,6 @@ export const batchCreateContributions = async (req, res, next) => {
             userId: userId
         });
 
-        console.log("contributionCount:", contributionCount, userId)
         // Step 2: Is naye batch ka size hasil karo
         const batchSize = contributions.length;
         const MAX_CONTRIBUTIONS_PER_PROJECT = 10;
