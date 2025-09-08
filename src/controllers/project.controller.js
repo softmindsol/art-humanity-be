@@ -187,14 +187,33 @@ export const updateProjectStatus = async (req, res, next) => {
 
 export const getGalleryProjects = async (req, res, next) => {
     try {
-        // Query database for projects where `isClosed` is true
-        const projects = await Project.find({ isClosed: true })
-            .select("-contributors") // We don't need the full contributor list on the gallery page
-            .sort({ updatedAt: -1 }); // Show the most recently completed projects first
+        // --- Step 1: Frontend se pagination ke parameters hasil karein ---
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 9; // Aap page par kitne project dikhana chahte hain
+        const skip = (page - 1) * limit;
 
-        res
-            .status(200)
-            .json(new ApiResponse(200, projects, "Fetched gallery projects successfully"));
+        // --- Step 2: Filter object banayein (sirf 'Completed' projects) ---
+        // Hum 'isClosed' ke bajaye naye 'status' field ko istemal karenge
+        const filter = { isClosed: true };
+
+        // --- Step 3: Database se data fetch karein (Pagination ke saath) ---
+        const projects = await Project.find(filter)
+            .sort({ updatedAt: -1 }) // Sab se naye completed projects pehle
+            .skip(skip)
+            .limit(limit)
+            .select("-contributors"); // Gallery list par contributors ki zaroorat nahi
+
+        // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
+        const totalProjects = await Project.countDocuments(filter);
+
+        // --- Step 5: Frontend ke liye mukammal response banayein ---
+        res.status(200).json(new ApiResponse(200, {
+            projects,
+            currentPage: page,
+            totalPages: Math.ceil(totalProjects / limit),
+            totalProjects: totalProjects
+        }, "Fetched gallery projects successfully."));
+
     } catch (err) {
         next(err);
     }
