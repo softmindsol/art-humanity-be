@@ -19,6 +19,7 @@ const NotificationSchema = new Schema({
 
     // Notification kis project se mutalliq hai (taake click karke wahan ja sakein)
     project: { type: Schema.Types.ObjectId, ref: 'Project' },
+    canvasId: { type: String },
 
     // Kya user ne isay parh liya hai?
     isRead: { type: Boolean, default: false }

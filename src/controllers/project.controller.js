@@ -114,7 +114,6 @@ export const getActiveProjects = async (req, res, next) => {
         // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
         // Yeh pagination ke liye bohat zaroori hai
         const totalProjects = await Project.countDocuments(filter);
-        console.log("projects:", projects)
         // --- Step 5: Frontend ke liye ek behtareen response banayein ---
         res.status(200).json(new ApiResponse(200, {
             projects,
@@ -391,9 +390,18 @@ export const addContributorsToProject = async (req, res, next) => {
         // Tamam notifications ko database mein daalein aur socket par emit karein
         if (notificationsToCreate.length > 0) {
             const createdNotifications = await Notification.insertMany(notificationsToCreate);
-            createdNotifications.forEach(notification => {
-                io.to(notification.recipient.toString()).emit('new_notification', notification);
-            });
+            for (const notification of createdNotifications) {
+                // Ek naya object banayein jo frontend ke liye tayar ho
+                const populatedNotification = {
+                    ...notification.toObject(),
+                    project: { // 'project' field ko replace karein
+                        _id: project._id,
+                        canvasId: project.canvasId, // <-- canvasId add karein
+                        title: project.title
+                    }
+                };
+                io.to(notification.recipient.toString()).emit('new_notification', populatedNotification);
+            }
         }
 
         // Kamyabi ka response
