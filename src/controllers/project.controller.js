@@ -298,11 +298,17 @@ export const joinProject = async (req, res, next) => {
             throw new ApiError(404, "Project not found.");
         }
 
-        const joiningUser = await User.findById(userId).lean();
+        const joiningUser = await User.findById(userId).select('fullName email avatar _id');
         if (!joiningUser) {
             return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
         }
-
+        if (joiningUser) {
+            // Step 2: Sirf is project ke room mein tamam clients ko ek naya event bhejein
+            io.to(projectId.toString()).emit('contributor_joined', {
+                projectId: projectId,
+                newContributor: joiningUser // Naye contributor ka poora object bhejein
+            });
+        }
 
         // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
         const recipientSet = new Set();
@@ -445,6 +451,25 @@ export const removeContributor = async (req, res, next) => {
         );
 
         if (!project) throw new ApiError(404, "Project not found.");
+        // --- YEH NAYA, DUAL-EVENT LOGIC HAI ---
+
+        // Event 1: Tamam project members ko batayein ke ek user remove ho gaya hai
+        // Taake sab ki contributor list real-time mein update ho.
+        io.to(projectId.toString()).emit('contributor_removed', {
+            projectId: projectId,
+            removedUserId: userIdToRemove
+        });
+        console.log(`[Socket] Emitted 'contributor_removed' to room ${projectId}`);
+
+
+        // Event 2: Sirf us user ko ek khaas message bhejein jisay remove kiya gaya hai
+        // Iske liye hum uski 'private' user room ka istemal karenge.
+        io.to(userIdToRemove.toString()).emit('permissions_revoked', {
+            projectId: projectId,
+            message: `You have been removed from the project by ${removedBy.fullName}.`
+        });
+        console.log(`[Socket] Emitted 'permissions_revoked' to user ${userIdToRemove}`);
+
 
         // Contributor ko notification bhejein
         const notification = await Notification.create({
