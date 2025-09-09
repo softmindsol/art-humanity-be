@@ -337,13 +337,26 @@ export const joinProject = async (req, res, next) => {
                 sender: joiningUser._id,
                 type: 'NEW_CONTRIBUTOR',
                 message: notificationMessage,
-                project: updatedProject._id
+                project: updatedProject._id,
+                canvasId: updatedProject.canvasId
+
             }));
 
             const newNotifications = await Notification.insertMany(notificationsToCreate);
-
+            const projectInfoForSocket = {
+                _id: updatedProject._id,
+                canvasId: updatedProject.canvasId,
+                title: updatedProject.title
+                // Yahan aur koi field add kar sakte hain agar zaroorat ho
+            };
             newNotifications.forEach(notification => {
-                io.to(notification.recipient.toString()).emit('new_notification', notification);
+                // Asal notification object ka ek clone banayein
+                const notificationToSend = notification.toObject();
+                // Uske 'project' field ko hamare naye, populated object se badal dein
+                notificationToSend.project = projectInfoForSocket;
+
+                // Ab theek format wala object frontend ko bhejein
+                io.to(notification.recipient.toString()).emit('new_notification', notificationToSend);
             });
             console.log(`Sent ${newNotifications.length} real-time notifications.`);
         } else {
@@ -391,7 +404,8 @@ export const addContributorsToProject = async (req, res, next) => {
                 sender: ownerId,
                 type: 'ADDED_TO_PROJECT', // Naya type
                 message: `You have been added to the project "${project.title}" by Admin.`,
-                project: projectId
+                project: projectId,
+                canvasId: project.canvasId
             });
         });
 
@@ -407,7 +421,9 @@ export const addContributorsToProject = async (req, res, next) => {
                     sender: ownerId,
                     type: 'NEW_CONTRIBUTOR',
                     message: `${newUsersNames} has been added to the project "${project.title}".`,
-                    project: projectId
+                    project: projectId,
+                    canvasId: project.canvasId
+
                 });
             }
         });

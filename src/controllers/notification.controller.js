@@ -35,7 +35,7 @@ export const markSingleNotificationAsRead = async (req, res, next) => {
             {
                 _id: notificationId,      // Sirf is ID wali notification
                 recipient: userId       // Aur yaqeeni banayein ke yeh notification isi user ki hai
-            },
+            }, 
             { $set: { isRead: true } }, // 'isRead' ko true set kar do
             { new: true }               // Hamein update hone ke baad wala document wapas do
         ).populate({
