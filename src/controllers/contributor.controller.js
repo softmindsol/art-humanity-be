@@ -232,31 +232,62 @@ export const voteOnContribution = async (req, res, next) => {
 //     }
 // };
 
+// export const deleteContribution = async (req, res, next) => {
+//     try {
+//         const { id: contributionId } = req.params;
+//         const deletedContribution = await Contribution.findByIdAndDelete(contributionId);
+
+//         if (!deletedContribution) {
+//             throw new ApiError(404, "Contribution not found.");
+//         }
+
+//         // --- YEH NAYA LOGIC HAI ---
+//         // Tamam clients ko jo is project room mein hain, batayein ke yeh contribution delete ho gayi hai
+//         io.to(deletedContribution.projectId.toString()).emit('contribution_deleted', {
+//             contributionId: deletedContribution._id
+//         });
+
+//         res.status(200).json(new ApiResponse(200,
+//             { contributionId: deletedContribution._id },
+//             "Contribution deleted successfully."
+//         ));
+//     } catch (err) {
+//         next(err);
+//     }
+// };
+
 export const deleteContribution = async (req, res, next) => {
     try {
         const { id: contributionId } = req.params;
-        const deletedContribution = await Contribution.findByIdAndDelete(contributionId);
 
-        if (!deletedContribution) {
+        // Hum pehle contribution ko dhoondenge taake hamein projectId mil jaye
+        const contributionToDelete = await Contribution.findById(contributionId);
+
+        if (!contributionToDelete) {
             throw new ApiError(404, "Contribution not found.");
         }
+        
+        const { projectId } = contributionToDelete;
 
-        // --- YEH NAYA LOGIC HAI ---
+        // Ab contribution ko delete karein
+        await Contribution.findByIdAndDelete(contributionId);
+
+        // --- YEH NAYA, REAL-TIME LOGIC HAI ---
         // Tamam clients ko jo is project room mein hain, batayein ke yeh contribution delete ho gayi hai
-        io.to(deletedContribution.projectId.toString()).emit('contribution_deleted', {
-            contributionId: deletedContribution._id
+        io.to(projectId.toString()).emit('contribution_deleted', { 
+            contributionId: contributionId,
+            projectId: projectId
         });
+        console.log(`[Socket] Emitted 'contribution_deleted' for contribution ${contributionId} to room ${projectId}`);
 
         res.status(200).json(new ApiResponse(200,
-            { contributionId: deletedContribution._id },
+            { contributionId: contributionId },
             "Contribution deleted successfully."
         ));
     } catch (err) {
         next(err);
     }
 };
-
-
 
 export const batchCreateContributions = async (req, res, next) => {
     try {
@@ -367,6 +398,39 @@ export const batchCreateContributions = async (req, res, next) => {
         res.status(201).json(
             new ApiResponse(201, savedContributions, "Contributions batched and saved successfully.")
         );
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const clearCanvas = async (req, res, next) => {
+    try {
+        const { projectId } = req.params; // Ya req.params, jaisa bhi aapka route hai
+
+        if (!projectId) {
+            throw new ApiError(400, "Project ID is required.");
+        }
+
+        // Database se tamam contributions delete karein
+        await Contribution.deleteMany({ projectId: projectId });
+
+        // (Optional) Project ke stats ko reset karein
+        await Project.findByIdAndUpdate(projectId, {
+            $set: {
+                'stats.pixelCount': 0,
+                'stats.percentComplete': 0
+            }
+        });
+
+        // --- YEH NAYA, REAL-TIME LOGIC HAI ---
+        // Tamam clients ko jo is project room mein hain, batayein ke canvas clear ho gaya hai
+        io.to(projectId.toString()).emit('canvas_cleared', {
+            projectId: projectId
+        });
+        console.log(`[Socket] Emitted 'canvas_cleared' to room ${projectId}`);
+
+        res.status(200).json(new ApiResponse(200, null, "Canvas cleared successfully."));
 
     } catch (err) {
         next(err);

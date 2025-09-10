@@ -24,8 +24,8 @@ router.route('/canvas/:sessionId')
     .get(PaintPixelController.getCanvasData);
 
 // Clear canvas for a session
-router.route('/contributions/project/:projectId/clear')
-    .delete(PaintPixelController.clearCanvas);
+// router.route('/contributions/project/:projectId/clear')
+//     .delete(PaintPixelController.clearCanvas);
 
 // Get tile data for efficient rendering
 router.route('/tile/:sessionId/:tileX/:tileY')
