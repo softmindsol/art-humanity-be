@@ -266,7 +266,7 @@ export const deleteContribution = async (req, res, next) => {
         if (!contributionToDelete) {
             throw new ApiError(404, "Contribution not found.");
         }
-        
+
         const { projectId } = contributionToDelete;
 
         // Ab contribution ko delete karein
@@ -274,7 +274,7 @@ export const deleteContribution = async (req, res, next) => {
 
         // --- YEH NAYA, REAL-TIME LOGIC HAI ---
         // Tamam clients ko jo is project room mein hain, batayein ke yeh contribution delete ho gayi hai
-        io.to(projectId.toString()).emit('contribution_deleted', { 
+        io.to(projectId.toString()).emit('contribution_deleted', {
             contributionId: contributionId,
             projectId: projectId
         });
@@ -380,7 +380,7 @@ export const batchCreateContributions = async (req, res, next) => {
                         return strokeSum;
                     }, 0);
                     return sum + pixelsInContrib;
-                } 
+                }
                 return sum;
             }, 0);
 
