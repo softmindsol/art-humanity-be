@@ -46,6 +46,10 @@ const projectSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User' // Yeh 'User' model se link hai
     }],
+    bannedUsers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
 
     isPaused: {
         type: Boolean,

@@ -5,7 +5,7 @@ import Notification from "../models/notification.model.js";
 import Project from "../models/project.model.js";
 import { ApiError, ApiResponse } from "../utils/api.utils.js";
 import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
-
+import DrawingLog from '../models/drawingLog.model.js';
 // Create a new project
 
 // Create a new project
@@ -51,8 +51,8 @@ export const createProject = async (req, res, next) => {
         const project = new Project({
             title,
             description,
-            width: Number(width) || 0,
-            height: Number(height) || 0,
+            width: 2560,
+            height: 2560,
             canvasId,
             targetCompletionDate: targetCompletionDate || null,
             thumbnailUrl: finalThumbnailUrl,
@@ -255,6 +255,122 @@ export const getProjectContributors = async (req, res, next) => {
 };
 
 
+// export const joinProject = async (req, res, next) => {
+//     try {
+//         const { projectId } = req.params;
+//         const { userId } = req.body;
+
+//         if (!userId) {
+//             throw new ApiError(400, "User ID is required to join the project.");
+//         }
+
+//         const user = await User.findById(userId).select('role');
+//         if (!user) {
+//             throw new ApiError(404, "User not found.");
+//         }
+//         // if (user.role !== 'admin') {
+
+//         //     // --- YEH HAI ASAL FIX ---
+//         //     // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
+//         //     const userObjectId = new mongoose.Types.ObjectId(userId);
+//         //     // Step 2: Ab query mein is converted ObjectId ko istemal karein
+//         //     const projectsCount = await Project.countDocuments({
+//         //         contributors: userObjectId, // <-- Converted ObjectId istemal karein
+//         //         isClosed: false,
+//         //         isPaused: false            });
+
+//         //     console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
+
+//         //     const MAX_PROJECTS_LIMIT = 10;
+
+//         //     if (projectsCount >= MAX_PROJECTS_LIMIT) {
+//         //         throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
+//         //     }
+//         // }
+
+
+//         const updatedProject = await Project.findByIdAndUpdate(
+//             projectId,
+//             { $addToSet: { contributors: userId } },
+//             { new: true }
+//         ).populate('ownerId contributors');
+
+//         if (!updatedProject) {
+//             throw new ApiError(404, "Project not found.");
+//         }
+
+//         const joiningUser = await User.findById(userId).select('fullName email avatar _id');
+//         if (!joiningUser) {
+//             return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
+//         }
+//         if (joiningUser) {
+//             // Step 2: Sirf is project ke room mein tamam clients ko ek naya event bhejein
+//             io.to(projectId.toString()).emit('contributor_joined', {
+//                 projectId: projectId,
+//                 newContributor: joiningUser // Naye contributor ka poora object bhejein
+//             });
+//         }
+
+//         // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
+//         const recipientSet = new Set();
+
+//         // (2) Owner ko add karein
+//         recipientSet.add(updatedProject.ownerId._id.toString());
+
+//         // (3) Tamam contributors ko add karein
+//         updatedProject.contributors.forEach(c => recipientSet.add(c._id.toString()));
+
+//         // (4) Ab is Set mein se join karne wale user ko nikaal dein
+//         recipientSet.delete(joiningUser._id.toString());
+
+//         // (5) Set ko wapas ek array mein tabdeel kar dein
+//         const finalRecipients = [...recipientSet];
+
+//         console.log("Final Recipients for Notification:", finalRecipients);
+//         // --- NOTIFICATION LOGIC KHATM ---
+
+//         const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProject.title}".`;
+
+//         // Agar recipients hain, tab hi notifications banayein
+//         if (finalRecipients.length > 0) {
+//             const notificationsToCreate = finalRecipients.map(id => ({
+//                 recipient: id,
+//                 sender: joiningUser._id,
+//                 type: 'NEW_CONTRIBUTOR',
+//                 message: notificationMessage,
+//                 project: updatedProject._id,
+//                 canvasId: updatedProject.canvasId
+
+//             }));
+
+//             const newNotifications = await Notification.insertMany(notificationsToCreate);
+//             const projectInfoForSocket = {
+//                 _id: updatedProject._id,
+//                 canvasId: updatedProject.canvasId,
+//                 title: updatedProject.title
+//                 // Yahan aur koi field add kar sakte hain agar zaroorat ho
+//             };
+//             newNotifications.forEach(notification => {
+//                 // Asal notification object ka ek clone banayein
+//                 const notificationToSend = notification.toObject();
+//                 // Uske 'project' field ko hamare naye, populated object se badal dein
+//                 notificationToSend.project = projectInfoForSocket;
+
+//                 // Ab theek format wala object frontend ko bhejein
+//                 io.to(notification.recipient.toString()).emit('new_notification', notificationToSend);
+//             });
+//             console.log(`Sent ${newNotifications.length} real-time notifications.`);
+//         } else {
+//             console.log("No recipients to notify.");
+//         }
+
+//         res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project."));
+
+//     } catch (err) {
+//         next(err);
+//     }
+// };
+
 export const joinProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;
@@ -264,112 +380,90 @@ export const joinProject = async (req, res, next) => {
             throw new ApiError(400, "User ID is required to join the project.");
         }
 
-        const user = await User.findById(userId).select('role');
-        if (!user) {
-            throw new ApiError(404, "User not found.");
-        }
-        // if (user.role !== 'admin') {
-
-        //     // --- YEH HAI ASAL FIX ---
-        //     // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
-        //     const userObjectId = new mongoose.Types.ObjectId(userId);
-        //     // Step 2: Ab query mein is converted ObjectId ko istemal karein
-        //     const projectsCount = await Project.countDocuments({
-        //         contributors: userObjectId, // <-- Converted ObjectId istemal karein
-        //         isClosed: false,
-        //         isPaused: false            });
-
-        //     console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
-
-        //     const MAX_PROJECTS_LIMIT = 10;
-
-        //     if (projectsCount >= MAX_PROJECTS_LIMIT) {
-        //         throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
-        //     }
-        // }
-
-        const updatedProject = await Project.findByIdAndUpdate(
-            projectId,
-            { $addToSet: { contributors: userId } },
-            { new: true }
-        ).populate('ownerId contributors');
-
-        if (!updatedProject) {
+        // --- Step 1: Tamam zaroori data pehle hasil karein ---
+        const project = await Project.findById(projectId).select('bannedUsers title ownerId'); // bannedUsers ko select karein
+        if (!project) {
             throw new ApiError(404, "Project not found.");
         }
 
-        const joiningUser = await User.findById(userId).select('fullName email avatar _id');
+        const joiningUser = await User.findById(userId).select('fullName email avatar _id role');
         if (!joiningUser) {
-            return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
-        }
-        if (joiningUser) {
-            // Step 2: Sirf is project ke room mein tamam clients ko ek naya event bhejein
-            io.to(projectId.toString()).emit('contributor_joined', {
-                projectId: projectId,
-                newContributor: joiningUser // Naye contributor ka poora object bhejein
-            });
+            throw new ApiError(404, "User not found.");
         }
 
-        // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
+        // --- NAYA LOGIC: Step 2 - Check karein ke user banned to nahi hai ---
+        const isBanned = project.bannedUsers.some(bannedId => bannedId.equals(userId));
+        if (isBanned) {
+            // Agar user banned hai, to usay project join na karne dein
+            throw new ApiError(403, "You have been removed from this project and cannot rejoin.");
+        }
+        // --- BAN CHECK MUKAMMAL ---
+
+
+        // (Commented out) 10 project wala limit check yahan tha, jo hum ne hata diya hai
+        // if (joiningUser.role !== 'admin') { ... }
+
+
+        // --- Step 3: Database ko Update Karein ---
+        const updatedProject = await Project.findByIdAndUpdate(
+            projectId,
+            { $addToSet: { contributors: userId } },
+            { new: true } // Hamein updated document wapas do
+        ).populate('ownerId contributors', 'fullName email avatar _id'); // Owner aur contributors dono ko populate karein
+
+
+        if (!updatedProject) {
+            throw new ApiError(404, "Project not found or could not be updated.");
+        }
+
+        // --- Step 4: Real-time Events aur Notifications ---
+
+        // Event 1: Naye contributor ki khabar
+        io.to(projectId.toString()).emit('contributor_joined', {
+            projectId: projectId,
+            newContributor: joiningUser // Hum ne 'joiningUser' pehle hi hasil kar liya tha
+        });
+
+        // Event 2: Purane members ko notification bhejna
+        // (Aapka notification logic bilkul theek hai, usay waisa hi rakhein)
         const recipientSet = new Set();
-
-        // (2) Owner ko add karein
         recipientSet.add(updatedProject.ownerId._id.toString());
-
-        // (3) Tamam contributors ko add karein
         updatedProject.contributors.forEach(c => recipientSet.add(c._id.toString()));
-
-        // (4) Ab is Set mein se join karne wale user ko nikaal dein
         recipientSet.delete(joiningUser._id.toString());
-
-        // (5) Set ko wapas ek array mein tabdeel kar dein
         const finalRecipients = [...recipientSet];
-
-        console.log("Final Recipients for Notification:", finalRecipients);
-        // --- NOTIFICATION LOGIC KHATM ---
 
         const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProject.title}".`;
 
-        // Agar recipients hain, tab hi notifications banayein
         if (finalRecipients.length > 0) {
             const notificationsToCreate = finalRecipients.map(id => ({
                 recipient: id,
                 sender: joiningUser._id,
                 type: 'NEW_CONTRIBUTOR',
                 message: notificationMessage,
-                project: updatedProject._id,
-                canvasId: updatedProject.canvasId
-
+                project: updatedProject._id
             }));
-
             const newNotifications = await Notification.insertMany(notificationsToCreate);
+
             const projectInfoForSocket = {
                 _id: updatedProject._id,
-                canvasId: updatedProject.canvasId,
+                canvasId: updatedProject.canvasId, // canvasId zaroori hai
                 title: updatedProject.title
-                // Yahan aur koi field add kar sakte hain agar zaroorat ho
             };
-            newNotifications.forEach(notification => {
-                // Asal notification object ka ek clone banayein
-                const notificationToSend = notification.toObject();
-                // Uske 'project' field ko hamare naye, populated object se badal dein
-                notificationToSend.project = projectInfoForSocket;
 
-                // Ab theek format wala object frontend ko bhejein
+            newNotifications.forEach(notification => {
+                const notificationToSend = notification.toObject();
+                notificationToSend.project = projectInfoForSocket;
                 io.to(notification.recipient.toString()).emit('new_notification', notificationToSend);
             });
-            console.log(`Sent ${newNotifications.length} real-time notifications.`);
-        } else {
-            console.log("No recipients to notify.");
         }
 
+        // --- Step 5: Aakhir mein HTTP Response ---
         res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project."));
 
     } catch (err) {
         next(err);
     }
 };
-
 export const addContributorsToProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;
@@ -455,53 +549,161 @@ export const addContributorsToProject = async (req, res, next) => {
     }
 };
 
+// export const removeContributor = async (req, res, next) => {
+//     try {
+//         const { projectId, userIdToRemove, userId } = req.body;
+//         const removedBy = userId; // Admin/Owner
+
+//         if (!removedBy) {
+//             throw new ApiError(401, "Admin user not authenticated.");
+//         }
+
+//         const project = await Project.findByIdAndUpdate(
+//             projectId,
+//             { $pull: { contributors: userIdToRemove } },
+//             { new: true }
+//         );
+
+//         if (!project) throw new ApiError(404, "Project not found.");
+//         // --- YEH NAYA, DUAL-EVENT LOGIC HAI ---
+
+//         // Event 1: Tamam project members ko batayein ke ek user remove ho gaya hai
+//         // Taake sab ki contributor list real-time mein update ho.
+//         io.to(projectId.toString()).emit('contributor_removed', {
+//             projectId: projectId,
+//             removedUserId: userIdToRemove
+//         });
+//         console.log(`[Socket] Emitted 'contributor_removed' to room ${projectId}`);
+
+
+//         // Event 2: Sirf us user ko ek khaas message bhejein jisay remove kiya gaya hai
+//         // Iske liye hum uski 'private' user room ka istemal karenge.
+//         io.to(userIdToRemove.toString()).emit('permissions_revoked', {
+//             projectId: projectId,
+//             message: `You have been removed from the project by ${removedBy.fullName}.`
+//         });
+//         console.log(`[Socket] Emitted 'permissions_revoked' to user ${userIdToRemove}`);
+
+
+//         // Contributor ko notification bhejein
+//         const notification = await Notification.create({
+//             recipient: userIdToRemove,
+//             sender: removedBy._id,
+//             type: 'CONTRIBUTOR_REMOVED',
+//             message: `You have been removed from the project "${project.title}" by the owner.`,
+//             project: projectId
+//         });
+
+//         io.to(userIdToRemove.toString()).emit('new_notification', notification);
+
+//         res.status(200).json(new ApiResponse(200, { projectId, userIdToRemove }, "Contributor removed successfully."));
+//     } catch (err) { next(err); }
+// };
+
 export const removeContributor = async (req, res, next) => {
     try {
         const { projectId, userIdToRemove, userId } = req.body;
-        const removedBy = userId; // Admin/Owner
+        // Hum 'req.user' se admin ki details lenge, na ke 'req.body.userId' se
+        const removedByAdmin = userId;
 
+        if (!removedByAdmin) {
+            throw new ApiError(401, "Admin user not authenticated.");
+        }
+
+        // Step 1: Frontend se anay wali string IDs ko ObjectId mein convert karein
+        const projectObjectId = new mongoose.Types.ObjectId(projectId);
+        const userObjectIdToRemove = new mongoose.Types.ObjectId(userIdToRemove);
+
+        // --- NAYA LOGIC: Step 1 - User ki tamam contributions ko delete karein ---
+        // Pehle dhoondein taake hum stats update kar sakein (optional)
+        const contributionsToDelete = await Contribution.find({
+            projectId: projectObjectId,
+            userId: userObjectIdToRemove
+        }).select('_id');
+
+        const contributionIdsToDelete = contributionsToDelete.map(c => c._id);
+
+
+        if (contributionsToDelete.length > 0) {
+
+
+            // Drawing logs ko delete karein
+            const contributionResult = await Contribution.deleteMany({
+                projectId: projectObjectId,
+                userId: userObjectIdToRemove
+            });
+            console.log(`[Purge] Deleted ${contributionResult.deletedCount} timelapse logs for user ${userIdToRemove}`);
+
+            // Ab asal contributions ko delete karein
+
+            // Drawing logs ko delete karein
+            const logResult = await DrawingLog.deleteMany({
+                projectId: projectObjectId,
+                userId: userObjectIdToRemove
+            });
+
+            console.log(`[Purge] Deleted ${logResult.deletedCount} timelapse logs for user ${userIdToRemove}`);
+        }
+        // --- DELETION LOGIC MUKAMMAL ---
+
+
+        // --- NAYA LOGIC: Step 2 - User ko 'contributors' se nikaalein aur 'bannedUsers' mein daalein ---
         const project = await Project.findByIdAndUpdate(
             projectId,
-            { $pull: { contributors: userIdToRemove } },
+            {
+                $pull: { contributors: userIdToRemove },
+                $addToSet: { bannedUsers: userIdToRemove } // <-- User ko ban list mein daalein
+            },
             { new: true }
         );
 
-        if (!project) throw new ApiError(404, "Project not found.");
-        // --- YEH NAYA, DUAL-EVENT LOGIC HAI ---
+        if (!project) {
+            throw new ApiError(404, "Project not found.");
+        }
 
-        // Event 1: Tamam project members ko batayein ke ek user remove ho gaya hai
-        // Taake sab ki contributor list real-time mein update ho.
+        // --- REAL-TIME EVENTS (Bilkul Theek hain - No Change) ---
+        // Event 1: Tamam members ko batayein
         io.to(projectId.toString()).emit('contributor_removed', {
             projectId: projectId,
             removedUserId: userIdToRemove
         });
-        console.log(`[Socket] Emitted 'contributor_removed' to room ${projectId}`);
 
-
-        // Event 2: Sirf us user ko ek khaas message bhejein jisay remove kiya gaya hai
-        // Iske liye hum uski 'private' user room ka istemal karenge.
+        // Event 2: Sirf remove kiye gaye user ko batayein
         io.to(userIdToRemove.toString()).emit('permissions_revoked', {
             projectId: projectId,
-            message: `You have been removed from the project by ${removedBy.fullName}.`
+            message: `You have been removed from the project "${project.title}" by ${removedByAdmin.fullName}. All your contributions have been deleted.` // <-- Message update karein
         });
-        console.log(`[Socket] Emitted 'permissions_revoked' to user ${userIdToRemove}`);
+        // --- YEH NAYA, AHEM EVENT HAI ---
+        // Event 3: Tamam members ko batayein ke kaun si contributions delete hui hain
+        if (contributionIdsToDelete.length > 0) {
+            io.to(projectId.toString()).emit('contributions_purged', {
+                projectId: projectId,
+                deletedContributionIds: contributionIdsToDelete // Deleted IDs ka array bhejein
+            });
+            console.log(`[Socket] Emitted 'contributions_purged' for ${contributionIdsToDelete.length} contributions.`);
+        }
 
-
-        // Contributor ko notification bhejein
+        // --- NOTIFICATION (Bilkul Theek hai - No Change, lekin message behtar banayein) ---
         const notification = await Notification.create({
             recipient: userIdToRemove,
-            sender: removedBy._id,
+            sender: removedByAdmin._id,
             type: 'CONTRIBUTOR_REMOVED',
-            message: `You have been removed from the project "${project.title}" by the owner.`,
+            message: `You and all of your contributions have been removed from the project "${project.title}".`,
             project: projectId
         });
-
         io.to(userIdToRemove.toString()).emit('new_notification', notification);
 
-        res.status(200).json(new ApiResponse(200, { projectId, userIdToRemove }, "Contributor removed successfully."));
-    } catch (err) { next(err); }
-};
 
+        res.status(200).json(new ApiResponse(
+            200,
+            { userIdToRemove: userIdToRemove }, // <-- Response format theek hai
+            "Contributor and all their contributions have been successfully purged." // <-- Response message update karein
+        ));
+
+    } catch (err) {
+        next(err);
+    }
+};
 export const deleteProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;
