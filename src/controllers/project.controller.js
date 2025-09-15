@@ -75,46 +75,97 @@ export const createProject = async (req, res, next) => {
 
 // Get all active projects
 
+// export const getActiveProjects = async (req, res, next) => {
+//     try {
+//         // --- Step 1: Frontend se anay walay तमाम Query Parameters ko hasil karein ---
+//         const page = parseInt(req.query.page) || 1;       // Page number, default 1
+//         const limit = parseInt(req.query.limit) || 9;      // Kitne items per page, default 9
+//         const status = req.query.status;                 // 'active' ya 'paused'
+//         const searchQuery = req.query.search;            // User ka search text
+
+//         // --- Step 2: Mongoose ke liye ek dynamic 'filter' object banayein ---
+//         const filter = {
+//             status: { $in: ['Active', 'Paused'] } // 'Active' ya 'Paused' dono dikhayein
+//         };
+
+//         if (statusFilter === 'active') {
+//             filter.status = 'Active';
+//         } else if (statusFilter === 'paused') {
+//             filter.status = 'Paused';
+//         }
+
+//         // Agar 'status' undefined ya 'all' hai, to hum is filter ko nahi lagayenge
+
+//         // Agar frontend se search query aayi hai
+//         if (searchQuery) {
+//             // Hum 'title' field par ek case-insensitive search lagayenge
+//             filter.title = { $regex: searchQuery, $options: 'i' };
+//         }
+
+//         // --- Step 3: Database se data fetch karein (Pagination ke saath) ---
+//         const skip = (page - 1) * limit;
+
+//         const projects = await Project.find(filter)
+//             .sort({ createdAt: -1 }) // Hamesha naye projects pehle dikhayein
+//             .skip(skip)
+//             .limit(limit)
+//         // .select("-contributors"); // List page par contributors ki zaroorat nahi
+
+//         // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
+//         // Yeh pagination ke liye bohat zaroori hai
+//         const totalProjects = await Project.countDocuments(filter);
+//         // --- Step 5: Frontend ke liye ek behtareen response banayein ---
+//         res.status(200).json(new ApiResponse(200, {
+//             projects,
+//             currentPage: page,
+//             totalPages: Math.ceil(totalProjects / limit),
+//             totalProjects: totalProjects
+//         }, "Fetched active projects successfully"));
+
+//     } catch (err) {
+//         next(err);
+//     }
+// };
 export const getActiveProjects = async (req, res, next) => {
     try {
         // --- Step 1: Frontend se anay walay तमाम Query Parameters ko hasil karein ---
-        const page = parseInt(req.query.page) || 1;       // Page number, default 1
-        const limit = parseInt(req.query.limit) || 9;      // Kitne items per page, default 9
-        const status = req.query.status;                 // 'active' ya 'paused'
-        const searchQuery = req.query.search;            // User ka search text
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 9;
+        const statusFilter = req.query.status; // <-- Variable ka naam 'statusFilter' rakhein
+        const searchQuery = req.query.search;
 
         // --- Step 2: Mongoose ke liye ek dynamic 'filter' object banayein ---
-        const filter = {
-            isClosed: false // Hum gallery wale projects (isClosed: true) nahi chahte
-        };
+        const filter = {}; // <-- Shuru mein khali object rakhein
 
-        // Agar frontend se status ka filter aaya hai
-        if (status === 'active') {
-            filter.isPaused = false;
-        } else if (status === 'paused') {
-            filter.isPaused = true;
+        // --- YEH NAYI, BEHTAR LOGIC HAI ---
+        // Ab hum filter ko dynamically banayenge
+        if (statusFilter === 'active') {
+            filter.status = 'Active';
+        } else if (statusFilter === 'paused') {
+            filter.status = 'Paused';
+        } else {
+            // Agar status 'all' hai ya nahi bheja gaya, to 'Active' aur 'Paused' dono dhoondein
+            filter.status = { $in: ['Active', 'Paused'] };
         }
-        // Agar 'status' undefined ya 'all' hai, to hum is filter ko nahi lagayenge
 
         // Agar frontend se search query aayi hai
         if (searchQuery) {
-            // Hum 'title' field par ek case-insensitive search lagayenge
             filter.title = { $regex: searchQuery, $options: 'i' };
         }
 
-        // --- Step 3: Database se data fetch karein (Pagination ke saath) ---
+        // --- Baaki ka code bilkul theek hai (No Change) ---
+
+        // Step 3: Database se data fetch karein
         const skip = (page - 1) * limit;
-
         const projects = await Project.find(filter)
-            .sort({ createdAt: -1 }) // Hamesha naye projects pehle dikhayein
+            .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit)
-        // .select("-contributors"); // List page par contributors ki zaroorat nahi
+            .limit(limit);
 
-        // --- Step 4: Is filter ke mutabiq total projects ki tadaad hasil karein ---
-        // Yeh pagination ke liye bohat zaroori hai
+        // Step 4: Total projects ki tadaad hasil karein
         const totalProjects = await Project.countDocuments(filter);
-        // --- Step 5: Frontend ke liye ek behtareen response banayein ---
+
+        // Step 5: Response bhejein
         res.status(200).json(new ApiResponse(200, {
             projects,
             currentPage: page,
@@ -126,7 +177,6 @@ export const getActiveProjects = async (req, res, next) => {
         next(err);
     }
 };
-
 // Get single project by ID
 export const getProjectById = async (req, res, next) => {
     try {
@@ -147,43 +197,110 @@ export const getProjectById = async (req, res, next) => {
 
 
 // --- ADD THIS NEW CONTROLLER FUNCTION ---
+// export const updateProjectStatus = async (req, res, next) => {
+//     try {
+//         const { projectId } = req.params;
+
+//         // We will only allow specific fields to be updated through this route
+//         const { isPaused, isClosed } = req.body;
+
+//         // Build an object with only the fields that were provided in the request
+//         const updateData = {};
+//         if (typeof isPaused !== 'undefined') {
+//             updateData.isPaused = isPaused;
+//         }
+//         if (typeof isClosed !== 'undefined') {
+//             updateData.isClosed = isClosed;
+//         }
+
+//         // Check if there is anything to update
+//         if (Object.keys(updateData).length === 0) {
+//             throw new ApiError(400, "No valid fields provided for update.");
+//         }
+
+//         const updatedProject = await Project.findByIdAndUpdate(
+//             projectId,
+//             { $set: updateData }, // Use $set to update only the provided fields
+//             { new: true }       // Return the updated document
+//         );
+
+//         if (!updatedProject) {
+//             throw new ApiError(404, "Project not found.");
+//         }
+
+//         res.status(200).json(new ApiResponse(200, updatedProject, "Project status updated successfully."));
+
+//     } catch (err) {
+//         next(err);
+//     }
+// };
+
+// ... (imports)
+
 export const updateProjectStatus = async (req, res, next) => {
     try {
         const { projectId } = req.params;
+        const { status } = req.body; // Frontend se ab 'status' aayega
 
-        // We will only allow specific fields to be updated through this route
-        const { isPaused, isClosed } = req.body;
-
-        // Build an object with only the fields that were provided in the request
-        const updateData = {};
-        if (typeof isPaused !== 'undefined') {
-            updateData.isPaused = isPaused;
-        }
-        if (typeof isClosed !== 'undefined') {
-            updateData.isClosed = isClosed;
+        // Check karein ke frontend se aane wala status valid hai ya nahi
+        if (!['Active', 'Paused', 'Completed'].includes(status)) {
+            throw new ApiError(400, "Invalid status provided. Must be 'Active', 'Paused', or 'Completed'.");
         }
 
-        // Check if there is anything to update
-        if (Object.keys(updateData).length === 0) {
-            throw new ApiError(400, "No valid fields provided for update.");
-        }
+        const projectBeforeUpdate = await Project.findById(projectId).select('status title');
 
         const updatedProject = await Project.findByIdAndUpdate(
             projectId,
-            { $set: updateData }, // Use $set to update only the provided fields
-            { new: true }       // Return the updated document
+            { $set: { status: status } }, // Sirf 'status' field ko update karein
+            { new: true }
         );
 
         if (!updatedProject) {
             throw new ApiError(404, "Project not found.");
         }
 
-        res.status(200).json(new ApiResponse(200, updatedProject, "Project status updated successfully."));
+        // --- REAL-TIME LOGIC ---
+        let eventName = '';
+        let notificationMessage = '';
 
-    } catch (err) {
-        next(err);
-    }
+        if (status === 'Paused') {
+            eventName = 'project_paused';
+            notificationMessage = `The project "${updatedProject.title}" has been paused.`;
+        } else if (status === 'Completed') {
+            eventName = 'project_completed';
+            notificationMessage = `The project "${updatedProject.title}" is now complete!`;
+        } else if (status === 'Active' && projectBeforeUpdate?.status === 'Paused') {
+            eventName = 'project_resumed';
+            notificationMessage = `The project "${updatedProject.title}" has been resumed.`;
+        }
+
+        if (eventName) {
+
+            console.log(`-----------------------------------------`);
+            console.log(`[Backend] Preparing to emit event...`);
+            console.log(`[Backend] Event Name: ${eventName}`);
+            console.log(`[Backend] Project ID (Room): ${projectId.toString()}`);
+            console.log(`[Backend] Is io defined?`, !!io); // Yeh 'true' hona chahiye
+
+
+            io.to(projectId.toString()).emit(eventName, {
+                projectId: projectId,
+                message: notificationMessage
+            });
+
+
+            console.log(`[Backend] Event emitted successfully.`);
+            console.log(`-----------------------------------------`);
+        }
+
+        res.status(200).json(new ApiResponse(200, updatedProject, `Project status updated to ${status}.`));
+
+    } catch (err) { next(err); }
 };
+
+
+
+
 
 export const getGalleryProjects = async (req, res, next) => {
     try {
@@ -194,7 +311,7 @@ export const getGalleryProjects = async (req, res, next) => {
 
         // --- Step 2: Filter object banayein (sirf 'Completed' projects) ---
         // Hum 'isClosed' ke bajaye naye 'status' field ko istemal karenge
-        const filter = { isClosed: true };
+        const filter = { status: 'Completed' };
 
         // --- Step 3: Database se data fetch karein (Pagination ke saath) ---
         const projects = await Project.find(filter)
@@ -673,7 +790,7 @@ export const removeContributor = async (req, res, next) => {
             projectId: projectId,
             message: `You have been removed from the project "${project.title}" by ${removedByAdmin.fullName}. All your contributions have been deleted.` // <-- Message update karein
         });
-        // --- YEH NAYA, AHEM EVENT HAI ---
+
         // Event 3: Tamam members ko batayein ke kaun si contributions delete hui hain
         if (contributionIdsToDelete.length > 0) {
             io.to(projectId.toString()).emit('contributions_purged', {
@@ -682,6 +799,7 @@ export const removeContributor = async (req, res, next) => {
             });
             console.log(`[Socket] Emitted 'contributions_purged' for ${contributionIdsToDelete.length} contributions.`);
         }
+
 
         // --- NOTIFICATION (Bilkul Theek hai - No Change, lekin message behtar banayein) ---
         const notification = await Notification.create({
@@ -704,30 +822,54 @@ export const removeContributor = async (req, res, next) => {
         next(err);
     }
 };
+
+
 export const deleteProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;
 
-        // Step 1: Is project se judi hui tamam contributions ko delete karein
-        const deletionResult = await Contribution.deleteMany({ projectId: projectId });
-        console.log(`[Cleanup] Deleted ${deletionResult.deletedCount} contributions for project ${projectId}.`);
+        await Contribution.deleteMany({ projectId: projectId });
+        await DrawingLog.deleteMany({ projectId: projectId }); // Timelapse data bhi delete karein
 
-        // Step 2: Ab asal project ko delete karein
         const deletedProject = await Project.findByIdAndDelete(projectId);
 
-        // Agar project mila hi nahi
-        if (!deletedProject) {
-            throw new ApiError(404, "Project not found.");
-        }
+        if (!deletedProject) throw new ApiError(404, "Project not found.");
 
-        // Kamyabi ka response bhejein
-        res.status(200).json(new ApiResponse(
-            200,
-            { projectId: deletedProject._id }, // Frontend ko ID wapas bhejein
-            "Project and all its contributions have been deleted successfully."
-        ));
+        // --- REAL-TIME EVENT ADD KAREIN ---
+        io.emit('project_deleted', {
+            projectId: projectId,
+            message: `The project "${deletedProject.title}" has been deleted.`
+        });
 
-    } catch (err) {
-        next(err);
-    }
+        res.status(200).json(new ApiResponse(200, { projectId }, "Project deleted successfully."));
+    } catch (err) { next(err); }
 };
+
+// export const deleteProject = async (req, res, next) => {
+
+//     try {
+//         const { projectId } = req.params;
+
+//         // Step 1: Is project se judi hui tamam contributions ko delete karein
+//         const deletionResult = await Contribution.deleteMany({ projectId: projectId });
+//         console.log(`[Cleanup] Deleted ${deletionResult.deletedCount} contributions for project ${projectId}.`);
+
+//         // Step 2: Ab asal project ko delete karein
+//         const deletedProject = await Project.findByIdAndDelete(projectId);
+
+//         // Agar project mila hi nahi
+//         if (!deletedProject) {
+//             throw new ApiError(404, "Project not found.");
+//         }
+
+//         // Kamyabi ka response bhejein
+//         res.status(200).json(new ApiResponse(
+//             200,
+//             { projectId: deletedProject._id }, // Frontend ko ID wapas bhejein
+//             "Project and all its contributions have been deleted successfully."
+//         ));
+
+//     } catch (err) {
+//         next(err);
+//     }
+// };

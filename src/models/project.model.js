@@ -51,13 +51,20 @@ const projectSchema = new mongoose.Schema({
         ref: 'User'
     }],
 
-    isPaused: {
-        type: Boolean,
-        default: false
-    },
-    isClosed: {
-        type: Boolean,
-        default: false
+    // isPaused: {
+    //     type: Boolean,
+    //     default: false
+    // },
+    // isClosed: {
+    //     type: Boolean,
+    //     default: false
+    // },
+
+    status: {
+        type: String,
+        enum: ['Active', 'Paused', 'Completed'], // Sirf yeh 3 values ho sakti hain
+        default: 'Active', // Naya project hamesha 'Active' hoga
+        index: true // Is par index lagana behtar hai
     },
     stats: {
         pixelCount: { type: Number, default: 0 },
