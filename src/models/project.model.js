@@ -71,7 +71,10 @@ const projectSchema = new mongoose.Schema({
         contributorCount: { type: Number, default: 0 },
         percentComplete: { type: Number, default: 0 }
     },
-    // Timestamps ke liye Mongoose ka built-in option istemal karna behtar hai
+    price: {
+        type: Number,
+        default: 2.99 // Default price set kar dein
+    },
 }, {
     timestamps: true // Yeh `createdAt` aur `updatedAt` khud manage karega
 });

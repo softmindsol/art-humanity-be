@@ -73,7 +73,6 @@ export const createProject = async (req, res, next) => {
     }
 };
 
-// Get all active projects
 
 // export const getActiveProjects = async (req, res, next) => {
 //     try {
@@ -130,7 +129,7 @@ export const getActiveProjects = async (req, res, next) => {
     try {
         // --- Step 1: Frontend se anay walay तमाम Query Parameters ko hasil karein ---
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 9;
+        const limit = parseInt(req.query.limit) || 6;
         const statusFilter = req.query.status; // <-- Variable ka naam 'statusFilter' rakhein
         const searchQuery = req.query.search;
 
