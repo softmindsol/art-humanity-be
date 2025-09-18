@@ -49,7 +49,7 @@ export const createPaymentIntent = async (req, res, next) => {
         next(err);
     }
 };
-
+// arfan
 export const createDonationIntent = async (req, res, next) => {
     try {
         // Frontend se 'amount' aayegi (e.g., 5 for $5.00)
