@@ -70,64 +70,64 @@ export const createContribution = async (req, res, next) => {
     }
 };
 
-// export const getProjectContributions = async (req, res, next) => {
-//     try {
-//         const { projectId } = req.params;
+export const getEachContributions = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
 
-//         // --- STEP 1: Tamam Query Parameters ko Log Karein ---
-//         console.log("Received Query Parameters:", req.query);
+        // --- STEP 1: Tamam Query Parameters ko Log Karein ---
+        console.log("Received Query Parameters:", req.query);
 
-//         const page = parseInt(req.query.page) || 1;
-//         const limit = parseInt(req.query.limit) || 20;
-//         const skip = (page - 1) * limit;
-//         const { sortBy = 'newest', userId } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+        const { sortBy = 'newest', userId } = req.query;
 
-//         // --- STEP 2: Filter Object ko Banayein aur Log Karein ---
-//         // Ek base filter object banayein jo hamesha project ko filter karega
-//         const filter = { projectId: projectId };
+        // --- STEP 2: Filter Object ko Banayein aur Log Karein ---
+        // Ek base filter object banayein jo hamesha project ko filter karega
+        const filter = { projectId: projectId };
 
-//         // Agar `userId` query parameter mojood hai aur khali nahi hai,
-//         // to usay filter mein shamil karein.
-//         if (userId && userId !== 'undefined' && userId !== 'null') {
-//             filter.userId = userId;
-//             console.log(`Filtering by userId: ${userId}`);
-//         } else {
-//             console.log("No userId provided, fetching for all users.");
-//         }
+        // Agar `userId` query parameter mojood hai aur khali nahi hai,
+        // to usay filter mein shamil karein.
+        if (userId && userId !== 'undefined' && userId !== 'null') {
+            filter.userId = userId;
+            console.log(`Filtering by userId: ${userId}`);
+        } else {
+            console.log("No userId provided, fetching for all users.");
+        }
 
-//         console.log("Final Mongoose Filter Object:", filter);
+        console.log("Final Mongoose Filter Object:", filter);
 
-//         // --- STEP 3: Sorting Logic (waisi hi rahegi) ---
-//         let sortOptions = {};
-//         switch (sortBy) {
-//             case 'most-upvoted': sortOptions = { upvotes: -1 }; break;
-//             case 'most-downvoted': sortOptions = { downvotes: -1 }; break;
-//             case 'oldest': sortOptions = { createdAt: 1 }; break;
-//             case 'newest': default: sortOptions = { createdAt: -1 }; break;
-//         }
+        // --- STEP 3: Sorting Logic (waisi hi rahegi) ---
+        let sortOptions = {};
+        switch (sortBy) {
+            case 'most-upvoted': sortOptions = { upvotes: -1 }; break;
+            case 'most-downvoted': sortOptions = { downvotes: -1 }; break;
+            case 'oldest': sortOptions = { createdAt: 1 }; break;
+            case 'newest': default: sortOptions = { createdAt: -1 }; break;
+        }
 
-//         // --- STEP 4: Database Query ---
-//         const contributions = await Contribution.find(filter)
-//             .populate('userId', 'fullName email')
-//             .sort(sortOptions)
-//             .skip(skip)
-//             .limit(limit);
+        // --- STEP 4: Database Query ---
+        const contributions = await Contribution.find(filter)
+            .populate('userId', 'fullName email')
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(limit);
 
-//         const totalContributions = await Contribution.countDocuments(filter);
+        const totalContributions = await Contribution.countDocuments(filter);
 
-//         console.log(`Found ${contributions.length} contributions out of ${totalContributions} total.`);
+        console.log(`Found ${contributions.length} contributions out of ${totalContributions} total.`);
 
-//         res.status(200).json(new ApiResponse(200, {
-//             contributions,
-//             currentPage: page,
-//             totalPages: Math.ceil(totalContributions / limit),
-//             totalContributions
-//         }, "Contributions fetched successfully."));
+        res.status(200).json(new ApiResponse(200, {
+            contributions,
+            currentPage: page,
+            totalPages: Math.ceil(totalContributions / limit),
+            totalContributions
+        }, "Contributions fetched successfully."));
 
-//     } catch (err) {
-//         next(err);
-//     }
-// };
+    } catch (err) {
+        next(err);
+    }
+};
 
 
 export const getProjectContributions = async (req, res, next) => {
@@ -135,7 +135,7 @@ export const getProjectContributions = async (req, res, next) => {
         const { projectId } = req.params;
         const { tiles } = req.query;
 
-        console.log('tiles query param:', typeof tiles);
+        console.log('tiles query param:',  tiles);
         if (!tiles || typeof tiles !== 'string') {
             return res.status(200).json(new ApiResponse(200, { contributions: [] }));
         }

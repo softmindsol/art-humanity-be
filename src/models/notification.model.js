@@ -14,7 +14,7 @@ const NotificationSchema = new Schema({
         required: true
     },
 
-    // Notification ka message
+    // Notification ka message 
     message: { type: String, required: true },
 
     // Notification kis project se mutalliq hai (taake click karke wahan ja sakein)
