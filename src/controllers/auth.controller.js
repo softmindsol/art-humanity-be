@@ -157,7 +157,18 @@ export const userController = {
             if (!isPasswordMatch) {
                 return res.status(401).json({ success: false, message: 'Invalid password' });
             }
-
+            // --- YEH HAI ASAL FIX ---
+            // Login kamyab hone ke baad, user ka poora data payment history ke sath populate karein
+            const populatedUser = await User.findById(user._id)
+                .select('-password -verificationToken -resetToken -resetTokenExpiry') // sensitive data na bhejein
+                .populate({
+                    path: 'paymentHistory',
+                    // Payment ke andar projectId ko bhi populate karein taake frontend par kaam aaye
+                    populate: {
+                        path: 'projectId',
+                        select: 'title canvasId' // Sirf zaroori fields
+                    }
+                });
             const accessToken = jwt.sign(
                 { id: user._id, email: user.email },
                 JWT_ACCESS_TOKEN_SECRET_KEY,
@@ -188,15 +199,23 @@ export const userController = {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
             });
 
+            // res.status(200).json({
+            //     success: true,
+            //     data: {
+            //         id: user._id,
+            //         username: user.username,
+            //         email: user.email,
+            //         fullName: user.fullName,
+            //         token: accessToken,
+            //         role: user.role 
+            //     }
+            // });
             res.status(200).json({
                 success: true,
+                // Frontend ko ab poora, populated user object bhejein
                 data: {
-                    id: user._id,
-                    username: user.username,
-                    email: user.email,
-                    fullName: user.fullName,
-                    token: accessToken,
-                    role: user.role 
+                    ...populatedUser.toObject(), // Mongoose document ko plain object mein convert karein
+                    token: accessToken
                 }
             });
         } catch (error) {
@@ -241,21 +260,22 @@ export const userController = {
     getUser: async (req, res) => {
         try {
             const { id } = req.params;
-            const user = await User.findById(id).select('-password -verificationToken');
+            const user = await User.findById(id)
+                .select('-password -verificationToken -resetToken -resetTokenExpiry')
+                .populate({
+                    path: 'paymentHistory',
+                    populate: {
+                        path: 'projectId',
+                        select: 'title canvasId'
+                    }
+                });
+            // --- FIX KHATAM ---
             if (!user) {
                 return res.status(404).json({ success: false, message: 'User not found' });
             }
             res.status(200).json({
                 success: true,
-                data: {
-                    id: user._id,
-                    email: user.email,
-                    fullName: user.fullName,
-                    isVerified: user.isVerified,
-                    createdAt: user.createdAt,
-                    avatar: user.avatar || null ,// Include avatar if exists
-                    role: user.role // Include role
-                }
+                data: user
             });
         } catch (error) {
             res.status(500).json({ success: false, message: 'Server error', error: error.message });
@@ -279,6 +299,7 @@ export const userController = {
             res.status(500).json({ success: false, message: 'Server error', error: error.message });
         }
     },
+    
     verifyPassword: async (req, res) => {
         const { password, user } = req.body;
         console.log(user);

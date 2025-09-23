@@ -9,6 +9,105 @@ import { io } from '../../server.js';
 const TILE_SIZE = 512;
 
 
+export const createEmptyContribution = async (req, res, next) => {
+    try {
+        const { projectId,userId } = req.body;
+        
+
+        if (!projectId) {
+            throw new ApiError(400, "Project ID is required.");
+        }
+
+        const newContribution = new Contribution({
+            projectId,
+            userId,
+            strokes: [], // The key is to create it with an EMPTY strokes array
+            thumbnailUrl: '', // Initially no thumbnail
+        });
+
+        const savedContribution = await newContribution.save();
+
+        // Populate user data before sending the response
+        const populatedContribution = await Contribution.findById(savedContribution._id)
+            .populate('userId', 'fullName email')
+            .lean();
+
+        // --- REAL-TIME UPDATE ---
+        // Let everyone in the project know a new contribution container has been created
+        io.to(projectId.toString()).emit('contribution_created', populatedContribution);
+
+        res.status(201).json(new ApiResponse(201, populatedContribution, "Contribution created successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+export const addStrokesToContribution = async (req, res, next) => {
+    try {
+        const { contributionId } = req.params;
+        const { strokes } = req.body;
+
+        if (!strokes || !Array.isArray(strokes) || strokes.length === 0) {
+            throw new ApiError(400, "A non-empty strokes array is required.");
+        }
+
+        // --- NEW, MORE ROBUST LOGIC ---
+
+        // Step 1: Find the existing contribution
+        const contribution = await Contribution.findById(contributionId);
+        if (!contribution) {
+            throw new ApiError(404, "Contribution not found.");
+        }
+
+        // Step 2: Prepare the new strokes with their starting points
+        const newStrokesWithStartPoints = strokes.map(stroke => ({
+            ...stroke,
+            startX: stroke.strokePath[0]?.fromX,
+            startY: stroke.strokePath[0]?.fromY,
+        }));
+
+        // Step 3: Add the new strokes to the existing ones in memory
+        contribution.strokes.push(...newStrokesWithStartPoints);
+
+        // Step 4: Regenerate the thumbnail using the COMPLETE list of strokes
+        const newThumbnailUrl = await generateThumbnail(contribution.strokes);
+        contribution.thumbnailUrl = newThumbnailUrl; // Update the thumbnail URL
+
+        // Step 5: Save the updated contribution (with new strokes and new thumbnail)
+        const savedContribution = await contribution.save();
+
+        // Step 6: Populate the user data for the response
+        const populatedContribution = await Contribution.findById(savedContribution._id)
+            .populate('userId', 'fullName email');
+
+        // --- REAL-TIME UPDATE ---
+        io.to(populatedContribution.projectId.toString()).emit('contribution_updated', populatedContribution);
+
+        // --- STATS UPDATE ---
+        const project = await Project.findById(populatedContribution.projectId);
+        if (project) {
+            // Calculate pixels from the NEW strokes that were just added
+            const pixelsInThisBatch = strokes.reduce((sum, stroke) => sum + (stroke.strokePath?.length || 0), 0);
+
+            project.stats.pixelCount += pixelsInThisBatch;
+            const totalCanvasPixels = project.width * project.height;
+            if (totalCanvasPixels > 0) {
+                project.stats.percentComplete = Math.min(100, (project.stats.pixelCount / totalCanvasPixels) * 100);
+            }
+            await project.save();
+        }
+
+        res.status(200).json(new ApiResponse(200, populatedContribution, "Strokes added and thumbnail updated successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+
+
 // 1. Nayi Contribution Save Karne ke liye
 export const createContribution = async (req, res, next) => {
     try {

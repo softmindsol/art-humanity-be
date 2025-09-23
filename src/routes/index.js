@@ -6,7 +6,7 @@ import contributionRoute from './contributor.route.js'
 import timelapseRouter from './timelapse.routes.js'; // Naye router ko import karein
 import imageRouter from './image.routes.js'; // Naye router ko import karein
 import notificationRouter from './notification.routes.js'; // Naye router ko import karein
-import paymentRouter from './payment.routes.js'; // Naye router ko import karein
+import {paymentRouter} from './payment.routes.js'; // Naye router ko import karein
 
 const router = express.Router();
 

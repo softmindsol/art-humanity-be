@@ -55,8 +55,13 @@ const userSchema = new Schema({
     createdAt: {
         type: Date,
         default: Date.now
-    }
-});
+    },
+    paymentHistory: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Payment'
+    }],
+},
+);
 
 
 const User = mongoose.model('User', userSchema);

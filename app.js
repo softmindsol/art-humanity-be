@@ -4,7 +4,7 @@ import express from 'express'
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
-
+import './src/models/index.js'; // <-- THIS IS THE ONLY LINE YOU NEED TO ADD
 import router from './src/routes/index.js';
 import { swaggerServe, swaggerSetup } from './swagger.js';
 import { CORS_ALLOWED_ORIGINS } from './src/config/env.config.js';
@@ -12,6 +12,8 @@ import { ApiError } from './src/utils/api.utils.js';
 import logger from './src/utils/logger.utils.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import allRoutes from './src/routes/index.js'; // Your central router file
+import { webhookRouter } from './src/routes/payment.routes.js';
 const app = express()
 // This will solve CORS Policy Error
 app.use(
@@ -30,7 +32,7 @@ app.use(
 );
 
 // JSON
-
+app.use('/api/v1/payments', webhookRouter);
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
