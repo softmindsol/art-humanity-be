@@ -554,7 +554,7 @@ export const userController = {
             res.status(200).json({
                 success: true,
                 data: {
-                    id: user._id,
+                    _id: user._id,
                     email: user.email,
                     fullName: decoded.name,
                     avatar: user.avatar,

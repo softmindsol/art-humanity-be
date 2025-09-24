@@ -50,7 +50,7 @@ export const handleStripeWebhook = async (req, res) => {
                 currency: paymentIntent.currency,
                 status: 'succeeded',
                 paymentType,
-                receiptUrl: charge.receipt_url,            
+                receiptUrl: charge.receipt_url,
             });
             const savedPayment = await newPayment.save();
 
@@ -155,7 +155,7 @@ export const createDonationIntent = async (req, res, next) => {
                 // --- YEH LINE ADD KARNA BOhat ZAROORI HAI ---
                 paymentType: 'donation',
                 userId: userId.toString(),
-               
+
             },
         });
         // Frontend ko 'client_secret' bhejein
