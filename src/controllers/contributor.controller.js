@@ -8,6 +8,7 @@ import { io } from '../../server.js';
 
 const TILE_SIZE = 512;
 
+const MAX_CONTRIBUTIONS_PER_USER_PER_PROJECT = 10;
 
 export const createEmptyContribution = async (req, res, next) => {
     try {
@@ -16,6 +17,17 @@ export const createEmptyContribution = async (req, res, next) => {
 
         if (!projectId) {
             throw new ApiError(400, "Project ID is required.");
+        }
+
+        // Step 1: Database mein is user ki is project ke liye mojooda contributions gino
+        const existingCount = await Contribution.countDocuments({
+            projectId: projectId,
+            userId: userId
+        });
+
+        // Step 2: Agar count limit ke barabar ya us se zyada hai, to error bhejo
+        if (existingCount >= MAX_CONTRIBUTIONS_PER_USER_PER_PROJECT) {
+            throw new ApiError(403, `You have reached the maximum limit of ${MAX_CONTRIBUTIONS_PER_USER_PER_PROJECT} contributions for this project.`);
         }
 
         const newContribution = new Contribution({
