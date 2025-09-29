@@ -131,7 +131,7 @@ export const userController = {
                     JWT_ACCESS_TOKEN_SECRET_KEY,
                     { expiresIn: '24h' }
                 );
- 
+
                 user.verificationToken = verificationToken;
                 await user.save();
 
@@ -299,7 +299,7 @@ export const userController = {
             res.status(500).json({ success: false, message: 'Server error', error: error.message });
         }
     },
-    
+
     verifyPassword: async (req, res) => {
         const { password, user } = req.body;
         console.log(user);
@@ -479,7 +479,7 @@ export const userController = {
 
     },
 
-     getAllRegisteredUsers : async (req, res, next) => {
+    getAllRegisteredUsers: async (req, res, next) => {
         try {
             // Hum sirf zaroori data wapas bhejenge, password nahi.
             const users = await User.find({ role: { $ne: 'admin' } })
@@ -506,7 +506,7 @@ export const userController = {
             const decoded = await admin.auth().verifyIdToken(token);
 
             let user = await User.findOne({ firebaseUid: decoded.uid });
-            console.log("user:", user)
+
             if (!user) {
                 user = await User.create({
                     firebaseUid: decoded.uid,

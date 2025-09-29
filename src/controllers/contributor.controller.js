@@ -12,8 +12,8 @@ const MAX_CONTRIBUTIONS_PER_USER_PER_PROJECT = 10;
 
 export const createEmptyContribution = async (req, res, next) => {
     try {
-        const { projectId,userId } = req.body;
-        
+        const { projectId, userId } = req.body;
+
 
         if (!projectId) {
             throw new ApiError(400, "Project ID is required.");
@@ -95,8 +95,10 @@ export const addStrokesToContribution = async (req, res, next) => {
             .populate('userId', 'fullName email');
 
         // --- REAL-TIME UPDATE ---
-        io.to(populatedContribution.projectId.toString()).emit('contribution_updated', populatedContribution);
-
+        io.to(populatedContribution.projectId.toString()).emit('strokes_added', {
+            contributionId: populatedContribution._id,
+            newStrokes: newStrokesWithStartPoints // Send only the strokes that were just added
+        });
         // --- STATS UPDATE ---
         const project = await Project.findById(populatedContribution.projectId);
         if (project) {
@@ -246,7 +248,7 @@ export const getProjectContributions = async (req, res, next) => {
         const { projectId } = req.params;
         const { tiles } = req.query;
 
-        console.log('tiles query param:',  tiles);
+        console.log('tiles query param:', tiles);
         if (!tiles || typeof tiles !== 'string') {
             return res.status(200).json(new ApiResponse(200, { contributions: [] }));
         }
@@ -581,7 +583,7 @@ export const deleteContribution = async (req, res, next) => {
 //             const thumbnailUrl = await generateThumbnail(contrib.strokes);
 //             contrib.thumbnailUrl = thumbnailUrl; // URL ko contribution object mein add karein
 //         }
-        
+
 //         // Mongoose `insertMany` ka istemal karein. Yeh bohat teiz hai.
 //         const savedContributions = await Contribution.insertMany(contributions);
 
