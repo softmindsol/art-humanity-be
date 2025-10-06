@@ -39,6 +39,22 @@ export const generateTimelapse = async (req, res, next) => {
         const logs = await DrawingLog.find({ projectId }).sort({ createdAt: 'asc' }).lean();
         if (logs.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
 
+        
+        const contributions = await Contribution.find({ projectId }).sort({ createdAt: 'asc' }).select('strokes createdAt').lean();
+
+       
+        const allStrokes = contributions.flatMap(contrib =>
+            contrib.strokes.map(stroke => ({
+                ...stroke,
+                timestamp: new Date(contrib.createdAt).getTime() // Sorting ke liye
+            }))
+        );
+
+        // Step 3: Tamam strokes ko unke timestamp ke hisab se tarteeb dein
+        allStrokes.sort((a, b) => a.timestamp - b.timestamp);
+
+        if (allStrokes.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
+
         const canvas = createCanvas(project.width, project.height);
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
@@ -48,10 +64,10 @@ export const generateTimelapse = async (req, res, next) => {
         if (fs.existsSync(tempFramesDir)) fs.rmSync(tempFramesDir, { recursive: true, force: true });
         fs.mkdirSync(tempFramesDir, { recursive: true });
 
-        console.log(`[Timelapse] Generating ${logs.length} frames...`);
+        console.log(`[Timelapse] Generating ${allStrokes.length} frames...`);
         // Har stroke ko ek frame ke tor par draw karein
-        for (let i = 0; i < logs.length; i++) {
-            drawStrokeOnCanvas(ctx, logs[i].stroke);
+        for (let i = 0; i < allStrokes.length; i++) {
+            drawStrokeOnCanvas(ctx, allStrokes[i]); // Ab `allStrokes` array istemal karein
             const framePath = path.join(tempFramesDir, `frame-${String(i).padStart(6, '0')}.png`);
             fs.writeFileSync(framePath, canvas.toBuffer('image/png'));
         }

@@ -8,6 +8,7 @@ import { JWT_ACCESS_TOKEN_SECRET_KEY, CLIENT_URL } from '../config/env.config.js
 import { ApiError, ApiResponse } from '../utils/api.utils.js'
 import admin from '../config/firebase.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
+import { sendEmail } from '../config/email.config.js';
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
@@ -57,14 +58,16 @@ export const userController = {
             const savedUser = await user.save();
 
             const verificationLink = `${req.headers.origin}/verify-email/${verificationToken}`;
-            const mailOptions = {
-                from: process.env.EMAIL,
+            await sendEmail({
                 to: req.body.email,
                 subject: 'Verify Your Email',
-                html: `<p>Please verify your email by clicking the link below:</p>
-                       <a href="${verificationLink}">Verify Email</a>
-                       <p>This link will expire in 24 hours.</p>`
-            };
+                html: `
+        <p>Please verify your email by clicking the link below:</p>
+        <a href="${verificationLink}">Verify Email</a>
+        <p>This link will expire in 24 hours.</p>
+      `,
+                text: `Please verify your email: ${verificationLink}`,
+            });
 
             await transporter.sendMail(mailOptions);
 
@@ -315,45 +318,126 @@ export const userController = {
         res.json({ success: true, message: "Password verified" });
     },
 
-    updateUser: async (req, res) => {
+    // updateUser: async (req, res) => {
+    //     try {
+    //         const { fullName, password, newEmail } = req.body;
+    //         const { id } = req.params;
+
+    //         // Build update object
+    //         const updateData = {};
+    //         if (fullName) {
+    //             updateData.fullName = fullName;
+    //         }
+
+    //         if (password) {
+    //             updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
+    //         }
+
+    //         // 3) Check duplicate email (exclude the same user)
+    //         const exists = await User.findOne({ email: newEmail, _id: { $ne: id } }).select("_id");
+    //         if (exists) return res.status(409).json({ success: false, message: "Email already in use" });
+
+
+    //         if (req.file?.path) {
+    //             const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
+    //             if (cloudinaryResponse?.url) {
+    //                 updateData.avatar = cloudinaryResponse.url; // ✅ Save to avatar
+    //                 //  deleteLocalFile(req.file.path);
+    //             }
+    //         }
+
+
+    //         const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
+    //             .select("-password -verificationToken"); // exclude sensitive fields
+
+    //         if (!updatedUser) {
+    //             return res.status(404).json({ success: false, message: "User not found" });
+    //         }
+
+    //         res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
+    //     } catch (err) {
+    //         console.error("Update user error:", err);
+    //         res.status(500).json({ success: false, message: "Server error", error: err.message });
+    //     }
+    // },
+
+    updateProfile: async (req, res) => {
         try {
-            const { fullName, password, newEmail } = req.body;
+            const { fullName } = req.body;
             const { id } = req.params;
 
-            // Build update object
-            const updateData = {};
-            if (fullName) {
-                updateData.fullName = fullName;
-            }
-
-            if (password) {
-                updateData.password = await bcrypt.hash(password, SALT_ROUNDS);
-            }
-
-            // 3) Check duplicate email (exclude the same user)
-            const exists = await User.findOne({ email: newEmail, _id: { $ne: id } }).select("_id");
-            if (exists) return res.status(409).json({ success: false, message: "Email already in use" });
-
+            const updateData = { fullName };
 
             if (req.file?.path) {
                 const cloudinaryResponse = await uploadOnCloudinary(req.file.path);
                 if (cloudinaryResponse?.url) {
-                    updateData.avatar = cloudinaryResponse.url; // ✅ Save to avatar
-                    //  deleteLocalFile(req.file.path);
+                    updateData.avatar = cloudinaryResponse.url;
                 }
             }
 
-
             const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true })
-                .select("-password -verificationToken"); // exclude sensitive fields
+                .select("-password -verificationToken");
 
             if (!updatedUser) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
 
-            res.status(200).json({ success: true, message: "User updated successfully", data: updatedUser });
+            res.status(200).json({ success: true, message: "Profile updated successfully", data: updatedUser });
         } catch (err) {
-            console.error("Update user error:", err);
+            console.error("Update profile error:", err);
+            res.status(500).json({ success: false, message: "Server error", error: err.message });
+        }
+    },
+
+    // Naya Controller: Password verify karne ke liye
+    verifyOldPassword: async (req, res) => {
+        try {
+            const { oldPassword } = req.body;
+            const { id } = req.params; // ya req.user.id agar auth middleware se aa raha hai
+
+            const user = await User.findById(id);
+            if (!user) {
+                return res.status(404).json({ success: false, message: "User not found" });
+            }
+
+            const isMatch = await bcrypt.compare(oldPassword, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ success: false, message: "Incorrect password" });
+            }
+
+            res.status(200).json({ success: true, message: "Password verified" });
+        } catch (err) {
+            res.status(500).json({ success: false, message: "Server error" });
+        }
+    },
+
+    // Naya Controller: Password change karne ke liye
+    changePassword: async (req, res) => {
+        try {
+            const { oldPassword, newPassword } = req.body;
+            const { id } = req.params;
+
+            const user = await User.findById(id);
+            if (!user) {
+                return res.status(404).json({ success: false, message: "User not found" });
+            }
+
+            const isMatch = await bcrypt.compare(oldPassword, user.password);
+            if (!isMatch) {
+                return res.status(400).json({ success: false, message: "Incorrect old password" });
+            }
+
+            if (oldPassword === newPassword) {
+                return res.status(400).json({ success: false, message: "New password cannot be the same as the old password" });
+            }
+
+            user.password = await bcrypt.hash(newPassword, SALT_ROUNDS);
+            await user.save();
+
+            res.status(200).json({ success: true, message: "Password updated successfully" });
+
+        } catch (err) {
+            console.error("Change password error:", err);
             res.status(500).json({ success: false, message: "Server error", error: err.message });
         }
     },
@@ -397,16 +481,16 @@ export const userController = {
             const baseUrl = req.headers.origin || CLIENT_URL; // fallback if origin missing
             const verificationLink = `${baseUrl}/verify-email/${verificationToken}`;
 
-            await transporter.sendMail({
-                from: process.env.EMAIL,
+            await sendEmail({
                 to: newEmail,
-                subject: "Verify your new email",
+                subject: 'Verify your new email',
                 html: `
-        <p>You requested to change the email on your account.</p>
-        <p>Please verify this email to finish the change:</p>
-        <p><a href="${verificationLink}">Verify New Email</a></p>
-        <p>This link expires in 24 hours.</p>
+        <p>You requested to change your email.</p>
+        <p>Click below to verify:</p>
+        <a href="${verificationLink}">Verify New Email</a>
+        <p>Expires in 24 hours.</p>
       `,
+                text: `Verify your new email: ${verificationLink}`,
             });
 
             return res.status(200).json({
@@ -432,15 +516,15 @@ export const userController = {
 
         const resetLink = `${req.headers.origin}/reset-password/${resetToken}`;
 
-        await transporter.sendMail({
-            from: process.env.EMAIL,
+        await sendEmail({
             to: email,
-            subject: "Password Reset Request",
+            subject: 'Password Reset Request',
             html: `
-              <p>You requested to reset your password.</p>
-              <p><a href="${resetLink}">Click here to reset password</a></p>
-              <p>This link will expire in 15 minutes.</p>
-            `,
+        <p>You requested to reset your password.</p>
+        <p><a href="${resetLink}">Reset Password</a></p>
+        <p>Link expires in 15 minutes.</p>
+      `,
+            text: `Reset your password: ${resetLink}`,
         });
 
         user.resetToken = resetToken;

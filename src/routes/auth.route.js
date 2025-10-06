@@ -9,10 +9,18 @@ router.route('/login').post(userController.loginUser);
 router.route('/get-all-users').get(userController.getAllRegisteredUsers);
 
 router.route('/verify-email').post(userController.verifyEmail);
-// router.route('/logout').post(userController.logoutUser);
 router.route('/refresh-token').get(userController.refreshToken);
 router.route('/forgot-password').post(userController.forgotPassword);
-router.route("/update-profile/:id").put(upload.single("profileImage"), userController.updateUser);
+router.route('/update-profile/:id').patch(upload.single('profileImage'),userController.updateProfile);
+router.route(
+    '/verify-password/:id').post(
+    userController.verifyOldPassword
+);
+
+router.route(
+    '/change-password/:id').patch(
+    userController.changePassword
+);
 router.route('/change-email').post(userController.requestEmailChange);
 
 router.route('/reset-password/:token').post(userController.resetPassword);

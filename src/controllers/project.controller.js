@@ -195,47 +195,6 @@ export const getProjectById = async (req, res, next) => {
 
 
 
-// --- ADD THIS NEW CONTROLLER FUNCTION ---
-// export const updateProjectStatus = async (req, res, next) => {
-//     try {
-//         const { projectId } = req.params;
-
-//         // We will only allow specific fields to be updated through this route
-//         const { isPaused, isClosed } = req.body;
-
-//         // Build an object with only the fields that were provided in the request
-//         const updateData = {};
-//         if (typeof isPaused !== 'undefined') {
-//             updateData.isPaused = isPaused;
-//         }
-//         if (typeof isClosed !== 'undefined') {
-//             updateData.isClosed = isClosed;
-//         }
-
-//         // Check if there is anything to update
-//         if (Object.keys(updateData).length === 0) {
-//             throw new ApiError(400, "No valid fields provided for update.");
-//         }
-
-//         const updatedProject = await Project.findByIdAndUpdate(
-//             projectId,
-//             { $set: updateData }, // Use $set to update only the provided fields
-//             { new: true }       // Return the updated document
-//         );
-
-//         if (!updatedProject) {
-//             throw new ApiError(404, "Project not found.");
-//         }
-
-//         res.status(200).json(new ApiResponse(200, updatedProject, "Project status updated successfully."));
-
-//     } catch (err) {
-//         next(err);
-//     }
-// };
-
-// ... (imports)
-
 export const updateProjectStatus = async (req, res, next) => {
     try {
         const { projectId } = req.params;
@@ -296,10 +255,6 @@ export const updateProjectStatus = async (req, res, next) => {
 
     } catch (err) { next(err); }
 };
-
-
-
-
 
 export const getGalleryProjects = async (req, res, next) => {
     try {
@@ -370,122 +325,6 @@ export const getProjectContributors = async (req, res, next) => {
     }
 };
 
-
-// export const joinProject = async (req, res, next) => {
-//     try {
-//         const { projectId } = req.params;
-//         const { userId } = req.body;
-
-//         if (!userId) {
-//             throw new ApiError(400, "User ID is required to join the project.");
-//         }
-
-//         const user = await User.findById(userId).select('role');
-//         if (!user) {
-//             throw new ApiError(404, "User not found.");
-//         }
-//         // if (user.role !== 'admin') {
-
-//         //     // --- YEH HAI ASAL FIX ---
-//         //     // Step 1: Frontend se aane wali string ID ko ObjectId mein convert karein
-//         //     const userObjectId = new mongoose.Types.ObjectId(userId);
-//         //     // Step 2: Ab query mein is converted ObjectId ko istemal karein
-//         //     const projectsCount = await Project.countDocuments({
-//         //         contributors: userObjectId, // <-- Converted ObjectId istemal karein
-//         //         isClosed: false,
-//         //         isPaused: false            });
-
-//         //     console.log(`[Debug] User ${userId} is in ${projectsCount} active projects.`); // Debugging ke liye
-
-//         //     const MAX_PROJECTS_LIMIT = 10;
-
-//         //     if (projectsCount >= MAX_PROJECTS_LIMIT) {
-//         //         throw new ApiError(403, `You have reached the maximum limit of ${MAX_PROJECTS_LIMIT} active projects.`);
-//         //     }
-//         // }
-
-
-//         const updatedProject = await Project.findByIdAndUpdate(
-//             projectId,
-//             { $addToSet: { contributors: userId } },
-//             { new: true }
-//         ).populate('ownerId contributors');
-
-//         if (!updatedProject) {
-//             throw new ApiError(404, "Project not found.");
-//         }
-
-//         const joiningUser = await User.findById(userId).select('fullName email avatar _id');
-//         if (!joiningUser) {
-//             return res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project (user not found for notification)."));
-//         }
-//         if (joiningUser) {
-//             // Step 2: Sirf is project ke room mein tamam clients ko ek naya event bhejein
-//             io.to(projectId.toString()).emit('contributor_joined', {
-//                 projectId: projectId,
-//                 newContributor: joiningUser // Naye contributor ka poora object bhejein
-//             });
-//         }
-
-//         // (1) Tamam potential recipients ko ek Set mein daalein taake duplicates na aayein
-//         const recipientSet = new Set();
-
-//         // (2) Owner ko add karein
-//         recipientSet.add(updatedProject.ownerId._id.toString());
-
-//         // (3) Tamam contributors ko add karein
-//         updatedProject.contributors.forEach(c => recipientSet.add(c._id.toString()));
-
-//         // (4) Ab is Set mein se join karne wale user ko nikaal dein
-//         recipientSet.delete(joiningUser._id.toString());
-
-//         // (5) Set ko wapas ek array mein tabdeel kar dein
-//         const finalRecipients = [...recipientSet];
-
-//         console.log("Final Recipients for Notification:", finalRecipients);
-//         // --- NOTIFICATION LOGIC KHATM ---
-
-//         const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProject.title}".`;
-
-//         // Agar recipients hain, tab hi notifications banayein
-//         if (finalRecipients.length > 0) {
-//             const notificationsToCreate = finalRecipients.map(id => ({
-//                 recipient: id,
-//                 sender: joiningUser._id,
-//                 type: 'NEW_CONTRIBUTOR',
-//                 message: notificationMessage,
-//                 project: updatedProject._id,
-//                 canvasId: updatedProject.canvasId
-
-//             }));
-
-//             const newNotifications = await Notification.insertMany(notificationsToCreate);
-//             const projectInfoForSocket = {
-//                 _id: updatedProject._id,
-//                 canvasId: updatedProject.canvasId,
-//                 title: updatedProject.title
-//                 // Yahan aur koi field add kar sakte hain agar zaroorat ho
-//             };
-//             newNotifications.forEach(notification => {
-//                 // Asal notification object ka ek clone banayein
-//                 const notificationToSend = notification.toObject();
-//                 // Uske 'project' field ko hamare naye, populated object se badal dein
-//                 notificationToSend.project = projectInfoForSocket;
-
-//                 // Ab theek format wala object frontend ko bhejein
-//                 io.to(notification.recipient.toString()).emit('new_notification', notificationToSend);
-//             });
-//             console.log(`Sent ${newNotifications.length} real-time notifications.`);
-//         } else {
-//             console.log("No recipients to notify.");
-//         }
-
-//         res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project."));
-
-//     } catch (err) {
-//         next(err);
-//     }
-// };
 
 export const joinProject = async (req, res, next) => {
     try {
@@ -665,56 +504,6 @@ export const addContributorsToProject = async (req, res, next) => {
     }
 };
 
-// export const removeContributor = async (req, res, next) => {
-//     try {
-//         const { projectId, userIdToRemove, userId } = req.body;
-//         const removedBy = userId; // Admin/Owner
-
-//         if (!removedBy) {
-//             throw new ApiError(401, "Admin user not authenticated.");
-//         }
-
-//         const project = await Project.findByIdAndUpdate(
-//             projectId,
-//             { $pull: { contributors: userIdToRemove } },
-//             { new: true }
-//         );
-
-//         if (!project) throw new ApiError(404, "Project not found.");
-//         // --- YEH NAYA, DUAL-EVENT LOGIC HAI ---
-
-//         // Event 1: Tamam project members ko batayein ke ek user remove ho gaya hai
-//         // Taake sab ki contributor list real-time mein update ho.
-//         io.to(projectId.toString()).emit('contributor_removed', {
-//             projectId: projectId,
-//             removedUserId: userIdToRemove
-//         });
-//         console.log(`[Socket] Emitted 'contributor_removed' to room ${projectId}`);
-
-
-//         // Event 2: Sirf us user ko ek khaas message bhejein jisay remove kiya gaya hai
-//         // Iske liye hum uski 'private' user room ka istemal karenge.
-//         io.to(userIdToRemove.toString()).emit('permissions_revoked', {
-//             projectId: projectId,
-//             message: `You have been removed from the project by ${removedBy.fullName}.`
-//         });
-//         console.log(`[Socket] Emitted 'permissions_revoked' to user ${userIdToRemove}`);
-
-
-//         // Contributor ko notification bhejein
-//         const notification = await Notification.create({
-//             recipient: userIdToRemove,
-//             sender: removedBy._id,
-//             type: 'CONTRIBUTOR_REMOVED',
-//             message: `You have been removed from the project "${project.title}" by the owner.`,
-//             project: projectId
-//         });
-
-//         io.to(userIdToRemove.toString()).emit('new_notification', notification);
-
-//         res.status(200).json(new ApiResponse(200, { projectId, userIdToRemove }, "Contributor removed successfully."));
-//     } catch (err) { next(err); }
-// };
 
 export const removeContributor = async (req, res, next) => {
     try {
@@ -844,7 +633,7 @@ export const deleteProject = async (req, res, next) => {
     } catch (err) { next(err); }
 };
 
-// export const deleteProject = async (req, res, next) => {
+
 
 //     try {
 //         const { projectId } = req.params;
