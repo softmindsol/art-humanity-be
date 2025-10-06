@@ -194,7 +194,33 @@ export const getProjectById = async (req, res, next) => {
 };
 
 
+export const updateProjectTitle = async (req, res, next) => {
+    try {
+        const { projectId } = req.params;
+        const { payload } = req.body;
+        const { title, userId } = payload || {};
+        // --- Validation ---
+        if (!title || title.trim() === '') {
+            throw new ApiError(400, "Title cannot be empty.");
+        }
 
+        // Project ko database se find karein
+        const project = await Project.findById(projectId);
+        if (!project) {
+            throw new ApiError(404, "Project not found.");
+        }
+      
+
+        // Title ko update karein
+        project.title = title.trim();
+        const updatedProject = await project.save();
+
+        res.status(200).json(new ApiResponse(200, updatedProject, "Project title updated successfully."));
+
+    } catch (err) {
+        next(err);
+    }
+};
 export const updateProjectStatus = async (req, res, next) => {
     try {
         const { projectId } = req.params;
@@ -635,29 +661,3 @@ export const deleteProject = async (req, res, next) => {
 
 
 
-//     try {
-//         const { projectId } = req.params;
-
-//         // Step 1: Is project se judi hui tamam contributions ko delete karein
-//         const deletionResult = await Contribution.deleteMany({ projectId: projectId });
-//         console.log(`[Cleanup] Deleted ${deletionResult.deletedCount} contributions for project ${projectId}.`);
-
-//         // Step 2: Ab asal project ko delete karein
-//         const deletedProject = await Project.findByIdAndDelete(projectId);
-
-//         // Agar project mila hi nahi
-//         if (!deletedProject) {
-//             throw new ApiError(404, "Project not found.");
-//         }
-
-//         // Kamyabi ka response bhejein
-//         res.status(200).json(new ApiResponse(
-//             200,
-//             { projectId: deletedProject._id }, // Frontend ko ID wapas bhejein
-//             "Project and all its contributions have been deleted successfully."
-//         ));
-
-//     } catch (err) {
-//         next(err);
-//     }
-// };

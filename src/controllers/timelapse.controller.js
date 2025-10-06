@@ -39,10 +39,10 @@ export const generateTimelapse = async (req, res, next) => {
         const logs = await DrawingLog.find({ projectId }).sort({ createdAt: 'asc' }).lean();
         if (logs.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
 
-        
+
         const contributions = await Contribution.find({ projectId }).sort({ createdAt: 'asc' }).select('strokes createdAt').lean();
 
-       
+
         const allStrokes = contributions.flatMap(contrib =>
             contrib.strokes.map(stroke => ({
                 ...stroke,
@@ -75,7 +75,6 @@ export const generateTimelapse = async (req, res, next) => {
         const outputPath = path.resolve(process.cwd(), 'public', 'timelapses', `${projectId}.mp4`);
         const outputDir = path.dirname(outputPath);
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-      
         if (fs.existsSync(outputPath)) {
             console.log(`[Timelapse] Deleting existing video file: ${outputPath}`);
             fs.unlinkSync(outputPath);
