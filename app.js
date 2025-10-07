@@ -12,7 +12,8 @@ import { ApiError } from './src/utils/api.utils.js';
 import logger from './src/utils/logger.utils.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { handleStripeWebhook } from './src/controllers/payment.controller.js';
+import allRoutes from './src/routes/index.js'; // Your central router file
+import { webhookRouter } from './src/routes/payment.routes.js';
 const app = express()
 // This will solve CORS Policy Error
 app.use(
@@ -31,9 +32,7 @@ app.use(
 );
 
 // JSON
-// app.use('/api/v1/payments', webhookRouter);
-app.post('/api/v1/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
-
+app.use('/api/v1/payments', webhookRouter);
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 

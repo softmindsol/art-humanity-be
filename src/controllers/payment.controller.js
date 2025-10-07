@@ -1,6 +1,3 @@
-
-// controllers/payment.controller.js
-
 import { User } from "../models/auth.model.js";
 import Project from "../models/project.model.js";
 import { sendEmailWithAttachment } from "../utils/email.utils.js";
