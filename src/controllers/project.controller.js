@@ -209,7 +209,7 @@ export const updateProjectTitle = async (req, res, next) => {
         if (!project) {
             throw new ApiError(404, "Project not found.");
         }
-      
+
 
         // Title ko update karein
         project.title = title.trim();
