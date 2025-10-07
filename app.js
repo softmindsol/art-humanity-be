@@ -12,8 +12,6 @@ import { ApiError } from './src/utils/api.utils.js';
 import logger from './src/utils/logger.utils.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import allRoutes from './src/routes/index.js'; // Your central router file
-import { webhookRouter } from './src/routes/payment.routes.js';
 import { handleStripeWebhook } from './src/controllers/payment.controller.js';
 const app = express()
 // This will solve CORS Policy Error
