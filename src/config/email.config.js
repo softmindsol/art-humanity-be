@@ -4,11 +4,11 @@ import sgMail from '@sendgrid/mail';
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Function to send email
-export const sendEmail = async ({ to, subject, html, text }) => {
+export const sendEmail = async ({ recipient, subject, html, text }) => {
   try {
     const msg = {
-      from: `Preclinify Technologies Ltd <${process.env.EMAIL}>`, // sender address
-      to: process.env.EMAIL,
+      from: `MurArt <${process.env.EMAIL}>`, // sender address
+      to: recipient, // recipient
       subject: subject, // email subject
       text,
       html, // email body

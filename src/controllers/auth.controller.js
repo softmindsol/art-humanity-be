@@ -59,17 +59,16 @@ export const userController = {
 
             const verificationLink = `${req.headers.origin}/verify-email/${verificationToken}`;
             await sendEmail({
-                to: req.body.email,
-                subject: 'Verify Your Email',
+                recipient: savedUser.email,
+                subject: 'Verify Your Email for MurArt',
                 html: `
-        <p>Please verify your email by clicking the link below:</p>
-        <a href="${verificationLink}">Verify Email</a>
-        <p>This link will expire in 24 hours.</p>
-      `,
-                text: `Please verify your email: ${verificationLink}`,
+                <p>Welcome to MurArt! Please verify your email by clicking the link below:</p>
+                <a href="${verificationLink}">Verify Email</a>
+                <p>This link will expire in 24 hours.</p>
+            `,
+                text: `Please verify your email by visiting this link: ${verificationLink}`,
+               
             });
-
-            await transporter.sendMail(mailOptions);
 
             res.status(201).json({
                 success: true,
@@ -139,16 +138,14 @@ export const userController = {
                 await user.save();
 
                 const verificationLink = `${req.headers.origin}/verify-email/${verificationToken}`;
-                const mailOptions = {
-                    from: process.env.EMAIL,
-                    to: user.email,
+                await sendEmail({
+                    recipient: user.email,
                     subject: 'Verify Your Email to Login',
                     html: `<p>You need to verify your email to login. Click the link below:</p>
                        <a href="${verificationLink}">Verify Email</a>
-                       <p>This link will expire in 24 hours.</p>`
-                };
-
-                await transporter.sendMail(mailOptions);
+                       <p>This link will expire in 24 hours.</p>`,
+                    text: `Please verify your email to login by visiting this link: ${verificationLink}`,
+                });
 
                 return res.status(403).json({
                     success: false,
@@ -482,7 +479,7 @@ export const userController = {
             const verificationLink = `${baseUrl}/verify-email/${verificationToken}`;
 
             await sendEmail({
-                to: newEmail,
+                recipient: newEmail,
                 subject: 'Verify your new email',
                 html: `
         <p>You requested to change your email.</p>
@@ -517,7 +514,7 @@ export const userController = {
         const resetLink = `${req.headers.origin}/reset-password/${resetToken}`;
 
         await sendEmail({
-            to: email,
+            recipient: email,
             subject: 'Password Reset Request',
             html: `
         <p>You requested to reset your password.</p>
