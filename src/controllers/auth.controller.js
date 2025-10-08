@@ -157,8 +157,7 @@ export const userController = {
             if (!isPasswordMatch) {
                 return res.status(401).json({ success: false, message: 'Invalid password' });
             }
-            // --- YEH HAI ASAL FIX ---
-            // Login kamyab hone ke baad, user ka poora data payment history ke sath populate karein
+           
             const populatedUser = await User.findById(user._id)
                 .select('-password -verificationToken -resetToken -resetTokenExpiry') // sensitive data na bhejein
                 .populate({
@@ -199,17 +198,7 @@ export const userController = {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
             });
 
-            // res.status(200).json({
-            //     success: true,
-            //     data: {
-            //         id: user._id,
-            //         username: user.username,
-            //         email: user.email,
-            //         fullName: user.fullName,
-            //         token: accessToken,
-            //         role: user.role 
-            //     }
-            // });
+        
             res.status(200).json({
                 success: true,
                 // Frontend ko ab poora, populated user object bhejein
@@ -408,7 +397,6 @@ export const userController = {
         }
     },
 
-    // Naya Controller: Password change karne ke liye
     changePassword: async (req, res) => {
         try {
             const { oldPassword, newPassword } = req.body;
