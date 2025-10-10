@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import { createPaymentIntent, createDonationIntent, handleStripeWebhook } from '../controllers/payment.controller.js';
 // import { verifyJWT } from '../middleware/auth.middleware.js'; // Apne auth middleware ko import karein
-import express from 'express'; 
+import express from 'express';
 
 const router = Router();
 
