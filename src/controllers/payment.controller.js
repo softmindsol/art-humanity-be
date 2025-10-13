@@ -12,7 +12,6 @@ export const handleStripeWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
 
-    console.log('[Webhook] Chl Gai, Hurrrryyyyyyyyyyyyy!!!!!!!!:', req.body);
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET_KEY);
     } catch (err) {
@@ -89,8 +88,7 @@ export const handleStripeWebhook = async (req, res) => {
 
 export const createPaymentIntent = async (req, res, next) => {
     try {
-        const { projectId, userId } = req.body; // <-- Ab yahan se sirf projectId lein
-        // const userId = req.user?._id; // <-- userId ko hamesha req.user se lein. Yeh secure hai.
+        const { projectId, userId } = req.body; 
 
         // Safety check
         if (!userId) {
