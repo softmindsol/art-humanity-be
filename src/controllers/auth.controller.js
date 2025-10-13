@@ -9,6 +9,7 @@ import { ApiError, ApiResponse } from '../utils/api.utils.js'
 import admin from '../config/firebase.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { sendEmail } from '../config/email.config.js';
+import { EMAIL_VERIFICATION_TEMPLATE, PASSWORD_RESET_REQUEST_TEMPLATE } from '../utils/emailTemplate.utils.js';
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
@@ -61,11 +62,7 @@ export const userController = {
             await sendEmail({
                 recipient: savedUser.email,
                 subject: 'Verify Your Email for MurArt',
-                html: `
-                <p>Welcome to MurArt! Please verify your email by clicking the link below:</p>
-                <a href="${verificationLink}">Verify Email</a>
-                <p>This link will expire in 24 hours.</p>
-            `,
+                 html: EMAIL_VERIFICATION_TEMPLATE(verificationLink), 
                 text: `Please verify your email by visiting this link: ${verificationLink}`,
                
             });
@@ -141,9 +138,7 @@ export const userController = {
                 await sendEmail({
                     recipient: user.email,
                     subject: 'Verify Your Email to Login',
-                    html: `<p>You need to verify your email to login. Click the link below:</p>
-                       <a href="${verificationLink}">Verify Email</a>
-                       <p>This link will expire in 24 hours.</p>`,
+                    html: EMAIL_VERIFICATION_TEMPLATE(verificationLink), 
                     text: `Please verify your email to login by visiting this link: ${verificationLink}`,
                 });
 
@@ -504,11 +499,7 @@ export const userController = {
         await sendEmail({
             recipient: email,
             subject: 'Password Reset Request',
-            html: `
-        <p>You requested to reset your password.</p>
-        <p><a href="${resetLink}">Reset Password</a></p>
-        <p>Link expires in 15 minutes.</p>
-      `,
+            html: PASSWORD_RESET_REQUEST_TEMPLATE(resetLink),
             text: `Reset your password: ${resetLink}`,
         });
 
