@@ -66,7 +66,7 @@ export const handleStripeWebhook = async (req, res) => {
 
                 // Send the email
                 await sendEmailWithAttachment({
-                    to: user.email,
+                    recipient: user.email,
                     subject: `Your receipt for ${project ? project.title : 'your donation'}`,
                     text: `Thank you for your purchase/donation! Your receipt is attached.`,
                     pdfBuffer: pdfBuffer,

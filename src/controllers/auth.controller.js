@@ -13,13 +13,6 @@ import { EMAIL_VERIFICATION_TEMPLATE, PASSWORD_RESET_REQUEST_TEMPLATE } from '..
 const SALT_ROUNDS = 10;
 
 // Email transporter setup
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL,
-        pass: process.env.PASSWORD
-    }
-});
 
 export const userController = {
     createUser: async (req, res) => {

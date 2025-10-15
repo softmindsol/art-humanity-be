@@ -1,10 +1,10 @@
-// src/controllers/timelapse.controller.js
-import DrawingLog from '../models/drawingLog.model.js';
+import Contribution from '../models/contributor.model.js'; // Humara naya, unified model
 import Project from '../models/project.model.js';
 import { createCanvas } from 'canvas';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
 import path from 'path';
+import { ApiError, ApiResponse } from '../utils/api.utils.js';
 
 const drawStrokeOnCanvas = (ctx, stroke) => {
     const { strokePath, brushSize, color, mode } = stroke;
@@ -30,32 +30,34 @@ const drawStrokeOnCanvas = (ctx, stroke) => {
 export const generateTimelapse = async (req, res, next) => {
     try {
         const { projectId } = req.params;
-
         console.log(`[Timelapse] Starting generation for project: ${projectId}`);
 
         const project = await Project.findById(projectId);
         if (!project) throw new ApiError(404, "Project not found.");
 
-        const logs = await DrawingLog.find({ projectId }).sort({ createdAt: 'asc' }).lean();
-        if (logs.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
+        // --- YEH HAI NAYI AUR BEHTAR LOGIC ---
+        // Step 1: Is project ki tamam contributions ko unke strokes ke sath haasil karein
+        // Step 1: Fetch all contributions for the project.
+        const contributions = await Contribution.find({ projectId })
+            .sort({ createdAt: 'asc' }) // Sort contributions by their creation time
+            .select('strokes')
+            .lean();
+        // Step 2: Tamam contributions ke tamam strokes ko ek single, "flat" array mein daalein
+        const allStrokes = contributions.flatMap(contrib => contrib.strokes);
+
+        // Step 3: Tamam strokes ko unke apne `createdAt` timestamp ke hisab se tarteeb dein
+        // Yeh sab se ahem qadam hai
+        allStrokes.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
 
-        const contributions = await Contribution.find({ projectId }).sort({ createdAt: 'asc' }).select('strokes createdAt').lean();
+        if (allStrokes.length === 0) {
+            throw new ApiError(400, "Cannot generate timelapse: The project has no drawings.");
+        }
 
-
-        const allStrokes = contributions.flatMap(contrib =>
-            contrib.strokes.map(stroke => ({
-                ...stroke,
-                timestamp: new Date(contrib.createdAt).getTime() // Sorting ke liye
-            }))
-        );
-
-        // Step 3: Tamam strokes ko unke timestamp ke hisab se tarteeb dein
-        allStrokes.sort((a, b) => a.timestamp - b.timestamp);
-
-        if (allStrokes.length === 0) throw new ApiError(404, "No drawings found to generate timelapse.");
-
+        // Canvas ko project ke SAHI dimensions ke sath banayein
         const canvas = createCanvas(project.width, project.height);
+        console.log(canvas);
+        console.log('height and width', project.width, project.height)
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, project.width, project.height);
@@ -67,7 +69,8 @@ export const generateTimelapse = async (req, res, next) => {
         console.log(`[Timelapse] Generating ${allStrokes.length} frames...`);
         // Har stroke ko ek frame ke tor par draw karein
         for (let i = 0; i < allStrokes.length; i++) {
-            drawStrokeOnCanvas(ctx, allStrokes[i]); // Ab `allStrokes` array istemal karein
+            // `drawStrokeOnCanvas` ko sahi stroke object pass karein
+            drawStrokeOnCanvas(ctx, allStrokes[i]);
             const framePath = path.join(tempFramesDir, `frame-${String(i).padStart(6, '0')}.png`);
             fs.writeFileSync(framePath, canvas.toBuffer('image/png'));
         }
