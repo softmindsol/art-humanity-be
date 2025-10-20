@@ -378,42 +378,34 @@ export const joinProject = async (req, res, next) => {
             // Agar user banned hai, to usay project join na karne dein
             throw new ApiError(403, "You have been removed from this project and cannot rejoin.");
         }
-        // --- BAN CHECK MUKAMMAL ---
-
-
-        // (Commented out) 10 project wala limit check yahan tha, jo hum ne hata diya hai
-        // if (joiningUser.role !== 'admin') { ... }
-
-
-        // --- Step 3: Database ko Update Karein ---
-        const updatedProject = await Project.findByIdAndUpdate(
+  
+        await Project.findByIdAndUpdate(
             projectId,
-            { $addToSet: { contributors: userId } },
-            { new: true } // Hamein updated document wapas do
-        ).populate('ownerId contributors', 'fullName email avatar _id'); // Owner aur contributors dono ko populate karein
+            { $addToSet: { contributors: userId } }
+        );
 
+        // Step 2: Ab, updated project ko alag se, poori tarah se populate karke haasil karein
+        const updatedProjectPopulated = await Project.findById(projectId)
+            .populate('ownerId', 'fullName email avatar _id') // Owner ko populate karein
+            .populate('contributors', 'fullName email avatar _id'); // Contributors ko populate karein
 
-        if (!updatedProject) {
-            throw new ApiError(404, "Project not found or could not be updated.");
+        if (!updatedProjectPopulated) {
+            throw new ApiError(404, "Project not found after update.");
         }
 
-        // --- Step 4: Real-time Events aur Notifications ---
-
-        // Event 1: Naye contributor ki khabar
         io.to(projectId.toString()).emit('contributor_joined', {
             projectId: projectId,
             newContributor: joiningUser // Hum ne 'joiningUser' pehle hi hasil kar liya tha
         });
 
-        // Event 2: Purane members ko notification bhejna
-        // (Aapka notification logic bilkul theek hai, usay waisa hi rakhein)
+
         const recipientSet = new Set();
-        recipientSet.add(updatedProject.ownerId._id.toString());
-        updatedProject.contributors.forEach(c => recipientSet.add(c._id.toString()));
+        recipientSet.add(updatedProjectPopulated.ownerId._id.toString());
+        updatedProjectPopulated.contributors.forEach(c => recipientSet.add(c._id.toString()));
         recipientSet.delete(joiningUser._id.toString());
         const finalRecipients = [...recipientSet];
 
-        const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProject.title}".`;
+        const notificationMessage = `${joiningUser.fullName} has joined the project "${updatedProjectPopulated.title}".`;
 
         if (finalRecipients.length > 0) {
             const notificationsToCreate = finalRecipients.map(id => ({
@@ -421,14 +413,14 @@ export const joinProject = async (req, res, next) => {
                 sender: joiningUser._id,
                 type: 'NEW_CONTRIBUTOR',
                 message: notificationMessage,
-                project: updatedProject._id
+                project: updatedProjectPopulated._id
             }));
             const newNotifications = await Notification.insertMany(notificationsToCreate);
 
             const projectInfoForSocket = {
-                _id: updatedProject._id,
-                canvasId: updatedProject.canvasId, // canvasId zaroori hai
-                title: updatedProject.title
+                _id: updatedProjectPopulated._id,
+                canvasId: updatedProjectPopulated.canvasId, // canvasId zaroori hai
+                title: updatedProjectPopulated.title
             };
 
             newNotifications.forEach(notification => {
@@ -439,12 +431,17 @@ export const joinProject = async (req, res, next) => {
         }
 
         // --- Step 5: Aakhir mein HTTP Response ---
-        res.status(200).json(new ApiResponse(200, updatedProject, "Successfully joined project."));
+        res.status(200).json(new ApiResponse(200, updatedProjectPopulated, "Successfully joined project."));
 
     } catch (err) {
+        console.log(err)
         next(err);
+
     }
 };
+
+
+
 export const addContributorsToProject = async (req, res, next) => {
     try {
         const { projectId } = req.params;

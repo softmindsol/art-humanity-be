@@ -14,7 +14,5 @@ router.route('/create-donation-intent').post(/*verifyJWT ,*/ createDonationInten
 // Ek naya router banayein jo is route ko alag se handle kare
 const webhookRouter = Router();
 
-// Yeh sab se ahem hissa hai. Stripe ko raw body chahiye, JSON nahi.
-// Isliye humein is route par JSON parsing se pehle raw body ko capture karna hoga.
 webhookRouter.route('/webhook').post(express.raw({ type: 'application/json' }), handleStripeWebhook);
 export { router as paymentRouter, webhookRouter };

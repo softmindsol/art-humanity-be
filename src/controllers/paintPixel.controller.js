@@ -319,7 +319,7 @@ class PaintPixelController {
 
             // Sirf ek line ka code: Naye Contribution model se delete karein
             const result = await Contribution.deleteMany({ projectId: projectId });
-           
+
             console.log(`[Clear Canvas] Deleted ${result.deletedCount} contributions for project: ${projectId}`);
 
             res.status(200).json(new ApiResponse(200,

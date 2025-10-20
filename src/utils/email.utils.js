@@ -26,7 +26,6 @@ export const sendEmailWithAttachment = async ({ recipient, subject, text, pdfBuf
         };
 
         await sgMail.send(msg);
-        console.log(`Email with PDF attachment sent successfully to: ${to}`);
     } catch (error) {
         console.error('Error sending email with attachment:', error.response ? error.response.body : error.message);
         // Error ko aage throw karein taake catch block usay handle kar sake

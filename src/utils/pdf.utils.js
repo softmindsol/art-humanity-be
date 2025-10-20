@@ -73,7 +73,7 @@ export const generateInvoicePdf = (payment, user, project) => {
         if (payment.paymentType === 'project_purchase' && project) {
             itemDescription = `Digital Download: "${project.title}"`;
         } else {
-            itemDescription = 'Donation to art-humanity';
+            itemDescription = 'Donation to MurArt';
         }
 
         doc.text(itemDescription, 50, itemTop);
@@ -96,8 +96,8 @@ export const generateInvoicePdf = (payment, user, project) => {
         // 6. Footer (Metadata aur Company ki Details)
         doc.fontSize(8)
             .text(
-                'art-humanity | your-website.com | support@art-humanity.com',
-                50, 750, { align: 'center', link: 'http://your-website.com', underline: true }
+                'MurArt | https://murart.io | support@art-humanity.com',
+                50, 750, { align: 'center', link: 'https://murart.io', underline: true }
             );
 
         // PDF ko final karein
