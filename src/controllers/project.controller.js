@@ -378,7 +378,7 @@ export const joinProject = async (req, res, next) => {
             // Agar user banned hai, to usay project join na karne dein
             throw new ApiError(403, "You have been removed from this project and cannot rejoin.");
         }
-  
+
         await Project.findByIdAndUpdate(
             projectId,
             { $addToSet: { contributors: userId } }
@@ -625,8 +625,8 @@ export const removeContributor = async (req, res, next) => {
 
         res.status(200).json(new ApiResponse(
             200,
-            { userIdToRemove: userIdToRemove }, // <-- Response format theek hai
-            "Contributor and all their contributions have been successfully purged." // <-- Response message update karein
+            { userIdToRemove: userIdToRemove }, 
+            "Contributor and all their contributions have been successfully purged." 
         ));
 
     } catch (err) {

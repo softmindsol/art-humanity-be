@@ -8,7 +8,7 @@ const StrokeSchema = new Schema({
     strokePath: { type: Schema.Types.Mixed, required: true },
     brushSize: { type: Number, required: true },
     color: { type: Schema.Types.Mixed, required: true },
-    mode: { type: String, enum: ['brush', 'eraser', "line","picker"], required: true },
+    mode: { type: String, enum: ['brush', 'eraser', "line", "picker"], required: true },
     startX: { type: Number, },
     startY: { type: Number },
 }, { timestamps: true }); // Strokes ki alag ID ki zaroorat nahi
@@ -26,9 +26,7 @@ const ContributionSchema = new Schema({
         ref: 'User',
         required: true
     },
-    // --- EMBEDDING ---
-    // Yahan hum poora stroke ka array save karenge
-    // Yeh paintPixelSchema ki 'strokePath' aur contributionSchema ke 'grouping' ko milata hai
+
     strokes: [StrokeSchema],
 
     // Future ke liye
